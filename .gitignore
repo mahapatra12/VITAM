@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Environment Variables
+.env
+client/.env
+server/.env
+
+# Build Artifacts
+dist/
+build/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.log
+
+# VITAM Specific
+.codex/

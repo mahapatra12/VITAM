@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0f172a" />
+    <meta name="description" content="VITAM Autonomous Institutional Portal. Next-generation AI-powered ERP system for comprehensive campus management." />
+    <meta name="keywords" content="VITAM, ERP, College Portal, AI Education, Campus Management" />
+    <meta property="og:title" content="VITAM AI Command Center" />
+    <meta property="og:description" content="The ultimate AI-driven institutional operating system." />
+    
+    <!-- PWA Installation Overrides -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="VITAM OS" />
+    
+    <title>VITAM Autonomous Portal | Command Engine</title>
+    
+    <!-- Institutional Cache Flush Protocol (High Priority) -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const reg of regs) { reg.unregister(); }
+          if (regs.length > 0) window.location.reload();
+        });
+      }
+    </script>
+  </head>
+  <body class="bg-[#0a0a0a] text-white antialiased selection:bg-blue-500/30">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js').then(res => console.log('SW Active')).catch(err => console.error('SW Error', err));
+        });
+      }
+    </script>
+    
+    <!-- Fallback Loader -->
+    <style>
+      #root:empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background: #0a0a0a;
+      }
+      #root:empty::after {
+        content: "";
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255,255,255,0.1);
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </body>
+</html>

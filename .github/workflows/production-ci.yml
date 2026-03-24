@@ -1,0 +1,47 @@
+name: VITAM Enterprise CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+        role: ['STUDENT', 'FACULTY', 'HOD', 'ADMIN', 'CHAIRMAN', 'PARENT', 'ALUMNI', 'FINANCE']
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Initialize Campus OS on Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Construct Global Backend Architecture
+      run: |
+        cd server
+        npm ci
+        
+    - name: Compile 3D Frontend UI Matrix
+      run: |
+        cd client
+        npm ci
+        npm run build
+        
+    - name: Execute Autonomous Role Unit Testing (${{ matrix.role }})
+      run: |
+        cd client
+        npm test
+      env:
+        CI: true
+        TEST_ROLE: ${{ matrix.role }}
+
+    - name: Generate Coverage Report for College Board
+      run: npm run coverage

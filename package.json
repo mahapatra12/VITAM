@@ -1,0 +1,19 @@
+{
+  "name": "vitam-os-monorepo",
+  "version": "1.0.0",
+  "description": "Vitam AI Campus Operating System - Monorepo Publish Shell",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "cd client && npm install && npm run build && cd ../server && npm install",
+    "publish-ready": "npm run build && SET PUBLISH_MODE=true && npm start"
+  },
+  "author": "Vitam Tech",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

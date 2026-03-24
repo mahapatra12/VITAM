@@ -1,0 +1,36 @@
+{
+  "short_name": "VITAM OS",
+  "name": "VITAM Autonomous Campus Engine",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#020202",
+  "background_color": "#050505",
+  "description": "Enterprise Student and Faculty Dashboard PWA",
+  "orientation": "portrait-primary",
+  "shortcuts": [
+    {
+      "name": "Global Comms",
+      "short_name": "Chat",
+      "url": "/dashboard?action=comms",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Asset Vault",
+      "short_name": "Vault",
+      "url": "/vault",
+      "icons": [{ "src": "/icon.png", "sizes": "192x192" }]
+    }
+  ]
+}

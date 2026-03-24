@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  vitam-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: vitam_node_server
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=5055
+      - MONGO_URI=mongodb://mongodb:27017/vitam_cloud
+      - JWT_SECRET=vitam_enterprise_secure_token_99x
+    ports:
+      - "5055:5055"
+    depends_on:
+      - mongodb
+    networks:
+      - vitam-network
+
+  mongodb:
+    image: mongo:6.0
+    container_name: vitam_database
+    restart: always
+    volumes:
+      - vitam-mongo-data:/data/db
+    ports:
+      - "27017:27017"
+    networks:
+      - vitam-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: vitam_reverse_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - vitam-api
+    networks:
+      - vitam-network
+
+  certbot:
+    image: certbot/certbot
+    container_name: vitam_ssl_certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+networks:
+  vitam-network:
+    driver: bridge
+
+volumes:
+  vitam-mongo-data:

@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* VITAM Institutional Brand Palette */
+  --primary: #1e3a8a; /* Deep Vignan Blue */
+  --primary-glow: rgba(30, 58, 138, 0.4);
+  --secondary: #ea580c; /* Vibrant Institutional Orange */
+  --accent: #f97316;
+  --bg-dark: #000000;
+  --card-bg: #0a0a0a;
+  --card-border: rgba(255, 255, 255, 0.08);
+  --text-main: #f8fafc;
+  --text-dim: #94a3b8;
+  
+  --glass: rgba(10, 10, 10, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --hover-glow: 0 0 25px rgba(30, 58, 138, 0.2);
+}
+
+
+
+@layer base {
+  body {
+    background-color: var(--apple-bg);
+    color: var(--apple-text-primary);
+    @apply antialiased;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+  }
+}
+
+@layer components {
+  .glass {
+    background-color: var(--apple-glass);
+    @apply backdrop-blur-md border;
+    border-color: var(--apple-border);
+  }
+
+  .crystal {
+    background: var(--apple-surface);
+    @apply backdrop-blur-3xl border shadow-2xl;
+    border-color: var(--apple-border);
+    background-image: radial-gradient(circle at top left, rgba(255,255,255,0.05), transparent 70%);
+  }
+
+  .dark .crystal {
+    background: radial-gradient(circle at top left, rgba(255,255,255,0.12), transparent 70%),
+                linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.01));
+    @apply bg-white/5;
+  }
+
+  .sovereign-synapse {
+    @apply absolute inset-0 pointer-events-none opacity-20;
+    background-image: radial-gradient(circle at 50% 50%, var(--citadel-accent) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: linear-gradient(to bottom, black, transparent);
+  }
+
+  .holographic-gate {
+    @apply relative overflow-hidden;
+    &::before {
+      content: '';
+      @apply absolute inset-0 -translate-x-full;
+      background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+      animation: gate-sweep 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    }
+  }
+
+  .dark .holographic-gate::before {
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.3), transparent);
+  }
+
+  .spatial-depth {
+    transform-style: preserve-3d;
+    perspective: 1200px;
+  }
+
+  .quantum-glow {
+    box-shadow: 0 0 80px var(--citadel-glow);
+    filter: drop-shadow(0 0 10px var(--citadel-accent));
+  }
+
+  @keyframes gate-sweep {
+    0% { transform: translateX(-150%) skewX(-20deg); }
+    50% { transform: translateX(150%) skewX(-20deg); }
+    100% { transform: translateX(150%) skewX(-20deg); }
+  }
+
+  .biometric-scan-line {
+    @apply absolute left-0 right-0 h-[2px] z-10;
+    background-color: var(--citadel-accent);
+    box-shadow: 0 0 20px var(--citadel-accent);
+    animation: scan-pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes scan-pulse {
+    0% { top: 0%; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  .apple-card {
+    background-color: var(--apple-surface);
+    @apply rounded-[2.5rem] border transition-all duration-700 ease-in-out hover:-translate-y-3;
+    border-color: var(--apple-border);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+  }
+
+  .dark .apple-card {
+    box-shadow: 0 32px 64px rgba(0,0,0,0.5);
+  }
+
+  .apple-btn-primary {
+    @apply text-white px-6 py-2.5 rounded-apple font-bold hover:brightness-110 active:scale-95 transition-all shadow-lg;
+    background-color: var(--citadel-accent);
+    box-shadow: 0 10px 20px var(--citadel-glow);
+  }
+
+  .hologram-glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(25px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  }
+
+  .dark .hologram-glass {
+    background: rgba(10, 10, 10, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .nebula-gradient {
+    background: radial-gradient(circle at 50% 50%, rgba(0, 113, 227, 0.15), transparent 70%),
+                radial-gradient(circle at 0% 0%, rgba(168, 85, 247, 0.1), transparent 50%);
+  }
+
+  .deep-sea-glass {
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .pulse-glow {
+    @apply relative;
+    animation: pulse-glow 2s infinite;
+  }
+
+  @keyframes pulse-glow {
+    0% { box-shadow: 0 0 0 0 var(--citadel-glow); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 113, 227, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 113, 227, 0); }
+  }
+
+  /* Hyper-Beast Mode Tokens */
+  .hyper-monolith {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+    backdrop-filter: blur(40px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.8),
+                inset 0 1px 1px rgba(255, 255, 255, 0.1);
+    @apply rounded-[40px] md:rounded-[60px] lg:rounded-[80px] p-6 md:p-10 lg:p-12 transition-all duration-500;
+  }
+
+  .text-fluid-huge {
+    font-size: clamp(2.5rem, 8vw, 8rem);
+    line-height: 0.9;
+    @apply font-black tracking-tighter uppercase italic leading-none;
+  }
+
+  .plasma-glow {
+    background: radial-gradient(circle at center, var(--citadel-accent) 0%, transparent 70%);
+    animation: plasma-breathing 4s ease-in-out infinite;
+  }
+
+  @keyframes plasma-breathing {
+    0%, 100% { opacity: 0.1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(1.2); }
+  }
+
+  .liquid-mesh {
+    background: radial-gradient(at 0% 0%, rgba(0, 113, 227, 0.15) 0px, transparent 50%),
+                radial-gradient(at 50% 0%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(16, 185, 129, 0.1) 0px, transparent 50%);
+    filter: blur(60px);
+    @apply absolute inset-0 -z-10;
+  }
+
+  .scanning-intro {
+    background: linear-gradient(180deg, transparent, var(--citadel-accent), transparent);
+    height: 100vh;
+    width: 2px;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    animation: scan-intro-pulse 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    filter: blur(4px);
+    @apply opacity-0;
+  }
+
+  @keyframes scan-intro-pulse {
+    0% { left: 0%; opacity: 0; }
+    50% { opacity: 1; }
+    100% { left: 100%; opacity: 0; }
+  }
+}
+
+/* Recharts: provide a minimum paint area to avoid zero-size warnings */
+.recharts-responsive-container {
+  min-height: 240px;
+  width: 100%;
+}
