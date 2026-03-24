@@ -95,9 +95,9 @@ exports.login = async (req, res) => {
         res.json({
             msg: "Primary login successful.",
             userId: user._id,
-            isFirstLogin: user.isFirstLogin !== false, // true until they complete setup
-            requires2FA: !user.isFirstLogin,           // skip 2FA modal on first login (setup page handles it)
-            requiresBiometric: !user.isFirstLogin,     // skip biometric modal on first login
+            isFirstLogin: user.isFirstLogin,
+            requires2FA: !user.isFirstLogin && user.isTwoFactorEnabled,
+            requiresBiometric: !user.isFirstLogin && user.isBiometricEnabled,
             hasBiometrics: user.credentials && user.credentials.length > 0,
             qrCode: qrCodeDataUri,
             totpSecret: user.twoFactorSecret,
