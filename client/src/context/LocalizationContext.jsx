@@ -76,7 +76,8 @@ const translations = {
     campus_metaverse: "Campus Metaverse",
     master_schedule: "Master Schedule",
     system_config: "System Config",
-    omni_search: "Omni Search"
+    omni_search: "Omni Search",
+    bulk_onboarding: "Bulk Onboarding"
   },
   OR: { // Odia
     dashboard: "ଡ୍ୟାସବୋର୍ଡ",
@@ -151,7 +152,8 @@ const translations = {
     campus_metaverse: "କ୍ୟାମ୍ପସ ମେଟାଭର୍ସ",
     master_schedule: "ମାଷ୍ଟର ସିଡ୍ୟୁଲ୍",
     system_config: "ସିଷ୍ଟମ୍ କନଫିଗ୍",
-    omni_search: "ଓମନି ସନ୍ଧାନ"
+    omni_search: "ଓମନି ସନ୍ଧାନ",
+    bulk_onboarding: "ବଲ୍କ ଅନବୋର୍ଡିଂ"
   },
   HI: { // Hindi
     dashboard: "डैशबोर्ड",
@@ -226,7 +228,8 @@ const translations = {
     campus_metaverse: "कैंपस मेटावर्स",
     master_schedule: "मास्टर शेड्यूल",
     system_config: "सिस्टम कॉन्फ़िगरेशन",
-    omni_search: "ओमनी खोज"
+    omni_search: "ओमनी खोज",
+    bulk_onboarding: "थोक ऑनबोर्डिंग"
   }
 };
 

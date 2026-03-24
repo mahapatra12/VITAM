@@ -29,6 +29,7 @@ const Sidebar = ({ role = "ADMIN", isOpen, onClose }) => {
     ADMIN: [
       { name: t("dashboard"),           icon: LayoutDashboard, path: "/admin/dashboard" },
       { name: t("user_control"),         icon: Users,           path: "/admin/users" },
+      { name: t("bulk_onboarding"),      icon: Database,        path: "/admin/bulk-import" },
       { name: t("risk_analytics"),       icon: ShieldCheck,     path: "/admin/analytics" },
       { name: t("system_topology"),      icon: Network,         path: "/admin/topology" },
       { name: t("exam_results"),         icon: FileText,        path: "/admin/exam-results" },

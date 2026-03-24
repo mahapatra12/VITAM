@@ -6,6 +6,7 @@ import AdminRouter from './components/AdminRouter';
 import ChairmanDashboard from './pages/admin/ChairmanDashboard';
 import DirectorDashboard from './pages/admin/DirectorDashboard';
 import AdminUsers from './pages/admin/Users';
+import BulkImport from './pages/admin/BulkImport';
 import AdminAnalytics from './pages/admin/Analytics';
 import SystemTopology from './pages/admin/SystemTopology';
 import HodDashboard from './pages/hod/Dashboard';
@@ -100,6 +101,7 @@ function AppContent() {
         <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
         <Route path="/admin/analytics" element={<ProtectedRoute><AdminAnalytics /></ProtectedRoute>} />
         <Route path="/admin/topology" element={<ProtectedRoute><SystemTopology /></ProtectedRoute>} />
+        <Route path="/admin/bulk-import" element={<ProtectedRoute><BulkImport /></ProtectedRoute>} />
         <Route path="/admin/exam-results" element={<ProtectedRoute><ExamResults /></ProtectedRoute>} />
         
         {/* Super Admin Routes */}
