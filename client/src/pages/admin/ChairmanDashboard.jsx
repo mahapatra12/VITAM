@@ -5,7 +5,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
 import { TrendingUp, Users, DollarSign, Award, Brain } from 'lucide-react';
 import AIChat from '../../components/AIChat';
-import { SOCKET_URL } from '../../utils/api';
+import api, { SOCKET_URL } from '../../utils/api';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
@@ -39,13 +39,8 @@ export default function ChairmanDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem('vitam_token');
-        const res = await axios.get('http://localhost:5100/api/chairman/dashboard', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setData(res.data);
+        const { data: dashboardData } = await api.get('/chairman/dashboard');
+        setData(dashboardData);
       } catch (err) {
         console.error("Failed to fetch Chairman data:", err);
         // Fallback data for demonstration
