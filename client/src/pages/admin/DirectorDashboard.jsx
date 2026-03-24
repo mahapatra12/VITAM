@@ -70,7 +70,8 @@ export default function DirectorDashboard() {
     socket.on('ceo-update', (latestDirective) => {
       setData(prev => prev ? {
         ...prev,
-        academicReport: latestDirective.academicReport
+        academicReport: latestDirective.academicReport,
+        ceoDirective: latestDirective.ceoDirective
       } : null);
     });
 
@@ -144,20 +145,36 @@ export default function DirectorDashboard() {
         </GlassCard>
       </div>
 
-      {/* Academic AI Report */}
-      <GlassCard title="Academic AI (CAO) Report" subtitle="Automated failure prediction & targeted interventions" icon={Cpu}>
-        <div className="mt-3 min-h-[80px] flex items-start">
-          {data?.academicReport ? (
-            <div dangerouslySetInnerHTML={{ __html: data.academicReport.replace(/\n/g, '<br />') }}
-              className="text-sm text-purple-300 leading-relaxed font-medium" />
-          ) : (
-            <span className="text-slate-500 italic flex items-center gap-2 text-sm">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-ping" />
-              Processing academic telemetry...
-            </span>
-          )}
-        </div>
-      </GlassCard>
+      {/* AI Reports Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <GlassCard title="Academic AI (CAO) Report" subtitle="Automated failure prediction & risk analysis" icon={Cpu}>
+          <div className="mt-3 min-h-[120px] overflow-y-auto pr-2">
+            {data?.academicReport ? (
+              <div dangerouslySetInnerHTML={{ __html: data.academicReport.replace(/\n/g, '<br />') }}
+                className="text-sm text-purple-300 leading-relaxed font-medium" />
+            ) : (
+              <span className="text-slate-500 italic flex items-center gap-2 text-sm">
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-ping" />
+                Processing academic telemetry...
+              </span>
+            )}
+          </div>
+        </GlassCard>
+
+        <GlassCard title="Strategic CEO Directive" subtitle="Institutional mandates & priorities" icon={Activity}>
+          <div className="mt-3 min-h-[120px] overflow-y-auto pr-2">
+            {data?.ceoDirective ? (
+              <div dangerouslySetInnerHTML={{ __html: data.ceoDirective.replace(/\n/g, '<br />') }}
+                className="text-sm text-emerald-400 leading-relaxed font-medium" />
+            ) : (
+              <span className="text-slate-500 italic flex items-center gap-2 text-sm">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                Awaiting Strategic Synthesis...
+              </span>
+            )}
+          </div>
+        </GlassCard>
+      </div>
 
       <AIChat role="director" />
     </DashboardLayout>

@@ -69,7 +69,8 @@ export default function ChairmanDashboard() {
       setData(prev => prev ? {
         ...prev,
         aiStrategy: latestDirective.ceoDirective,
-        financeReport: latestDirective.financeReport
+        financeReport: latestDirective.financeReport,
+        academicReport: latestDirective.academicReport
       } : null);
     });
 
@@ -152,7 +153,7 @@ export default function ChairmanDashboard() {
       </div>
 
       {/* AI Reports Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <GlassCard title="Finance AI (CFO) Report" subtitle="Autonomous cash flow analysis">
           <div className="h-[200px] mt-3 overflow-y-auto pr-2">
             {data?.financeReport ? (
@@ -162,6 +163,20 @@ export default function ChairmanDashboard() {
               <span className="text-white/30 italic flex items-center gap-2 text-sm mt-8 justify-center">
                 <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping" />
                 Awaiting CFO-AI synchronization...
+              </span>
+            )}
+          </div>
+        </GlassCard>
+
+        <GlassCard title="Academic AI (CAO) Report" subtitle="Student lifecycle & risk analysis">
+          <div className="h-[200px] mt-3 overflow-y-auto pr-2">
+            {data?.academicReport ? (
+              <div dangerouslySetInnerHTML={{ __html: data.academicReport.replace(/\n/g, '<br />') }}
+                className="text-sm text-white/80 leading-relaxed" />
+            ) : (
+              <span className="text-white/30 italic flex items-center gap-2 text-sm mt-8 justify-center">
+                <div className="w-2 h-2 bg-purple-500 rounded-full animate-ping" />
+                Awaiting CAO-AI computation...
               </span>
             )}
           </div>

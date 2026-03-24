@@ -38,3 +38,13 @@ exports.getAdminStats = async (req, res) => {
         res.status(500).json({ msg: "Server error" });
     }
 };
+exports.seedTelemetry = async (req, res) => {
+    try {
+        const seedDatabase = require("../seed");
+        await seedDatabase();
+        res.json({ msg: "Institutional telemetry seeded successfully." });
+    } catch (err) {
+        console.error("Manual Seeding Error:", err);
+        res.status(500).json({ msg: "Seeding failed", error: err.message });
+    }
+};

@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Server, Shield, Activity, HardDrive, Cpu, Wifi, AlertTriangle,
-  Terminal, Database, X, Zap, RefreshCcw
+  Terminal, Database, X, Zap, RefreshCcw, DatabaseZap
 } from 'lucide-react';
+import api from '../../utils/api';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
 import {
@@ -44,6 +45,7 @@ const TS = { contentStyle: { backgroundColor: '#0f172a', border: '1px solid #1e2
 export default function AdminDashboard() {
   const [sysAI, setSysAI] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     simulateAI();
@@ -68,12 +70,33 @@ export default function AdminDashboard() {
           <h2 className="text-3xl font-black text-white tracking-tight">System Infrastructure</h2>
           <p className="text-slate-400 font-medium mt-1">Live server telemetry, API traffic, and security orchestration</p>
         </div>
-        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-          onClick={simulateAI} disabled={refreshing}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-red-600/20 border border-red-500/30 text-red-400 text-sm font-black hover:bg-red-500/30 transition-all disabled:opacity-50">
-          <RefreshCcw size={16} className={refreshing ? "animate-spin" : ""} />
-          {refreshing ? 'Scanning...' : 'Run Diagnostics'}
-        </motion.button>
+        <div className="flex gap-3">
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+            onClick={async () => {
+              if (window.confirm("WARNING: This will clear existing Fees/Attendance/Results and re-seed with institutional telemetry. Proceed?")) {
+                setSeeding(true);
+                try {
+                  await api.post('/admin/seed-telemetry');
+                  alert("Institutional telemetry seeded successfully!");
+                } catch (err) {
+                  alert("Seeding failed: " + (err.response?.data?.msg || err.message));
+                } finally {
+                  setSeeding(false);
+                }
+              }
+            }} disabled={seeding}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 text-sm font-black hover:bg-blue-500/30 transition-all disabled:opacity-50">
+            <DatabaseZap size={16} className={seeding ? "animate-pulse" : ""} />
+            {seeding ? 'Seeding...' : 'Seed Data'}
+          </motion.button>
+          
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+            onClick={simulateAI} disabled={refreshing}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-red-600/20 border border-red-500/30 text-red-400 text-sm font-black hover:bg-red-500/30 transition-all disabled:opacity-50">
+            <RefreshCcw size={16} className={refreshing ? "animate-spin" : ""} />
+            {refreshing ? 'Scanning...' : 'Run Diagnostics'}
+          </motion.button>
+        </div>
       </div>
 
       {/* KPI Cards */}
