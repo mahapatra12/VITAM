@@ -17,6 +17,9 @@ const attendanceRoutes = require("./routes/attendanceRoutes");
 const financeRoutes = require("./routes/financeRoutes");
 const chairmanRoutes = require("./routes/chairmanRoutes");
 const directorRoutes = require("./routes/directorRoutes");
+const importRoutes = require("./routes/importRoutes");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 const server = http.createServer(app);
@@ -28,6 +31,17 @@ const io = new Server(server, {
 });
 
 app.set("io", io);
+
+// Production Security Hardening
+app.use(helmet());
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
+  message: "Too many requests from this IP, please try again in 15 minutes."
+});
+
+app.use("/api/auth/login", apiLimiter);
 
 app.use(cors({
     origin: (origin, callback) => {
