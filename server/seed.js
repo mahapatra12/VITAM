@@ -17,7 +17,6 @@ const seedDatabase = async () => {
     const hashedPassword = await bcrypt.hash('admin123', salt);
 
     const users = [
-      // ... (Previous users stay the same)
       {
         name: 'System Admin',
         email: 'admin@vitam.edu',
@@ -25,9 +24,7 @@ const seedDatabase = async () => {
         role: 'admin',
         subRole: 'none',
         department: 'Administration',
-        is2FAEnabled: true,
-        isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP'
+        isFirstLogin: false
       },
       {
         name: 'Chairman Chairman',
@@ -35,9 +32,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'chairman',
         subRole: 'none',
-        is2FAEnabled: true,
-        isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP'
+        isFirstLogin: false
       },
       {
         name: 'Director Director',
@@ -45,22 +40,40 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'director',
         subRole: 'none',
-        is2FAEnabled: true,
-        isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP'
+        isFirstLogin: false
       },
       {
-        name: 'Gudivada Eswara Rao',
+        name: 'Principal Principal',
         email: 'principal@vitam.edu.in',
         password: hashedPassword,
         role: 'admin',
         subRole: 'principal',
-        stream: 'EEE',
-        designation: 'Principal',
-        mobileNo: '9861875935',
-        is2FAEnabled: true,
-        isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP'
+        isFirstLogin: false
+      },
+      {
+        name: 'Vice Principal',
+        email: 'viceprincipal@vitam.edu.in',
+        password: hashedPassword,
+        role: 'admin',
+        subRole: 'vice_principal',
+        isFirstLogin: false
+      },
+      {
+        name: 'Finance Executive',
+        email: 'finance@vitam.edu.in',
+        password: hashedPassword,
+        role: 'admin',
+        subRole: 'finance',
+        isFirstLogin: false
+      },
+      {
+        name: 'HOD CSE',
+        email: 'hod@vitam.edu',
+        password: hashedPassword,
+        role: 'admin',
+        subRole: 'hod',
+        departmentId: null, // placeholder
+        isFirstLogin: false
       },
       {
         name: 'Prof. Sarah Jane',
@@ -68,10 +81,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'FACULTY',
         subRole: 'none',
-        department: 'Computer Science',
-        is2FAEnabled: true,
-        isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP'
+        isFirstLogin: false
       },
       {
         name: 'Alex Rivera',
@@ -79,21 +89,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'STUDENT',
         subRole: 'none',
-        department: 'CSE',
-        is2FAEnabled: true,
-        isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP'
-      },
-      {
-        name: 'John Mech',
-        email: 'john.mech@vitam.edu',
-        password: hashedPassword,
-        role: 'STUDENT',
-        subRole: 'none',
-        department: 'MECH',
-        is2FAEnabled: true,
-        isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP'
+        isFirstLogin: false
       }
     ];
 
