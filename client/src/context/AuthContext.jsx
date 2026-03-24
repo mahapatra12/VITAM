@@ -36,10 +36,11 @@ export const AuthProvider = ({ children }) => {
             localStorage.removeItem('vitam_user');
           }
         }
-      }
-      if (!cancelled) {
-        setLoading(false);
-        console.log("[Auth] Initialization complete.");
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+          console.log("[Auth] Initialization complete.");
+        }
       }
     };
 
