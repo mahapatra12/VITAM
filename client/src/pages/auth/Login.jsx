@@ -69,7 +69,7 @@ const LoginPage = () => {
     setError('');
     setLoading(true);
     try {
-      const { data } = await axios.post('http://localhost:5100/api/auth/verify-2fa', {
+      const { data } = await api.post('/auth/verify-2fa', {
         userId,
         token: otp.trim(),
       });

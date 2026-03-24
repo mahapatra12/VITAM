@@ -24,7 +24,7 @@ const seedDatabase = async () => {
         role: 'admin',
         subRole: 'none',
         department: 'Administration',
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'Chairman Chairman',
@@ -32,7 +32,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'chairman',
         subRole: 'none',
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'Director Director',
@@ -40,7 +40,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'director',
         subRole: 'none',
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'Principal Principal',
@@ -48,7 +48,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'admin',
         subRole: 'principal',
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'Vice Principal',
@@ -56,7 +56,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'admin',
         subRole: 'vice_principal',
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'Finance Executive',
@@ -64,7 +64,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'admin',
         subRole: 'finance',
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'HOD CSE',
@@ -73,7 +73,7 @@ const seedDatabase = async () => {
         role: 'admin',
         subRole: 'hod',
         departmentId: null, // placeholder
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'Prof. Sarah Jane',
@@ -81,7 +81,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'FACULTY',
         subRole: 'none',
-        isFirstLogin: false
+        isFirstLogin: true
       },
       {
         name: 'Alex Rivera',
@@ -89,7 +89,7 @@ const seedDatabase = async () => {
         password: hashedPassword,
         role: 'STUDENT',
         subRole: 'none',
-        isFirstLogin: false
+        isFirstLogin: true
       }
     ];
 
