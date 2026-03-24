@@ -33,14 +33,15 @@ app.use(cors({
     origin: [
         "http://localhost:5173",
         "http://localhost:5174",
-        "https://vitam-portal.vercel.app"
-    ],
+        "https://vitam-portal.vercel.app",
+        process.env.FRONTEND_URL
+    ].filter(Boolean),
     credentials: true
 }));
 app.use(express.json());
 
-app.get("/api/health", (req, res) => res.status(200).json({ 
-    status: "OK", 
+app.get("/api/health", (req, res) => res.status(200).json({
+    status: "OK",
     timestamp: new Date(),
     db: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
     aiModel: "llama-3.3-70b-versatile",
@@ -115,16 +116,16 @@ if (!MONGO_URI) {
         connectTimeoutMS: 15000,
         socketTimeoutMS: 30000,
     })
-    .then(async () => {
-        process.env.MOCK_MODE = "false";
-        console.log("✅ MongoDB Atlas Connected:", MONGO_URI.split("@")[1]?.split("/")[0] || "Atlas");
-        await startServices("Atlas");
-    })
-    .catch(async (err) => {
-        console.warn("⚠️  MongoDB Atlas connection failed:", err.message);
-        console.log("🔄 Falling back to In-Memory MongoDB for local development...");
-        await connectInMemory();
-    });
+        .then(async () => {
+            process.env.MOCK_MODE = "false";
+            console.log("✅ MongoDB Atlas Connected:", MONGO_URI.split("@")[1]?.split("/")[0] || "Atlas");
+            await startServices("Atlas");
+        })
+        .catch(async (err) => {
+            console.warn("⚠️  MongoDB Atlas connection failed:", err.message);
+            console.log("🔄 Falling back to In-Memory MongoDB for local development...");
+            await connectInMemory();
+        });
 }
 
 io.on("connection", (socket) => {
