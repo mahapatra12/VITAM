@@ -5,6 +5,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
 import { TrendingUp, Users, DollarSign, Award, Brain } from 'lucide-react';
 import AIChat from '../../components/AIChat';
+import { SOCKET_URL } from '../../utils/api';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend
@@ -63,7 +64,7 @@ export default function ChairmanDashboard() {
 
     fetchData();
 
-    const socket = io('http://localhost:5100');
+    const socket = io(SOCKET_URL);
     socket.on('ceo-update', (latestDirective) => {
       setData(prev => prev ? {
         ...prev,

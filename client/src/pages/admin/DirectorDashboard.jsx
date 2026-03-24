@@ -5,6 +5,7 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
 import { Activity, Clock, Users, Calendar, Cpu } from 'lucide-react';
 import AIChat from '../../components/AIChat';
+import { SOCKET_URL } from '../../utils/api';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -65,7 +66,7 @@ export default function DirectorDashboard() {
 
     fetchData();
 
-    const socket = io('http://localhost:5100');
+    const socket = io(SOCKET_URL);
     socket.on('ceo-update', (latestDirective) => {
       setData(prev => prev ? {
         ...prev,
