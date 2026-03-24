@@ -94,14 +94,10 @@ const MONGO_URI = process.env.MONGO_URI;
 const startServices = async (dbType = "Atlas") => {
     // Seed only if DB is empty
     const User = require("./models/User");
-    const count = await User.countDocuments();
-    if (count === 0) {
-        console.log(`[DB] No users found. Seeding ${dbType} database...`);
-        const seedDatabase = require("./seed");
-        await seedDatabase();
-    } else {
-        console.log(`[DB] ${count} users already exist in ${dbType} DB. Skipping seed.`);
-    }
+    // Force re-seed for Phase 5 transition to ensure new roster is live
+    console.log(`[DB] Forced seeding protocol active for Phase 5. Seeding ${dbType} database...`);
+    const seedDatabase = require("./seed");
+    await seedDatabase();
 
     // Initialize Cron Jobs & AI CEO
     require("./jobs/promotionJob")();
