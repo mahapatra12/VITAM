@@ -49,9 +49,9 @@ export const AuthProvider = ({ children }) => {
     const safety = setTimeout(() => {
       if (!cancelled) {
         setLoading(false);
-        console.log("[Auth] Safety mount triggered.");
+        console.log("[Auth] Safety mount triggered (Cold Start Buffer).");
       }
-    }, 1500);
+    }, 10000);
 
     return () => {
       cancelled = true;
