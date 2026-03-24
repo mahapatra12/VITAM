@@ -223,7 +223,7 @@ exports.completeSetup = async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const rpName = "VITAM AI Portal";
-const rpID = "localhost";
+const rpID = process.env.RP_ID || "localhost";
 const origin = process.env.ORIGIN || "http://localhost:5173";
 
 const {
