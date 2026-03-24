@@ -1,29 +1,89 @@
 const cron = require("node-cron");
 const { financeAgent, academicAgent, strategyAgent } = require("./aiMultiAgentService");
+const Fee = require("../models/Fee");
+const Attendance = require("../models/Attendance");
+const Result = require("../models/Result");
+const User = require("../models/User");
 
 let latestDirective = null;
 
-const runAutonomousEvaluation = async (io) => {
-    console.log("[AI CEO] Initiating Institutional Synthesis...");
-    
-    // 1. Gather Telemetry (Mock data for V5.0 structural build)
-    const financeData = {
-        totalRevenue: 124000000,
-        pendingFees: 18000000,
-        defaulters: 420,
-        recentExpenses: 3400000
-    };
+const fetchTelemetry = async () => {
+    try {
+        // 1. Finance Aggregation (CFO-AI)
+        const feeStats = await Fee.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalRevenue: { $sum: "$paid" },
+                    totalDues: { $sum: "$due" },
+                    defaulters: { $sum: { $cond: [{ $gt: ["$due", 0] }, 1, 0] } }
+                }
+            }
+        ]);
 
-    const academicData = {
-        totalStudents: 4250,
-        avgAttendance: 81.2,
-        departments: [
-            { name: "CSE", passed: 92, attendance: 85 },
-            { name: "ECE", passed: 88, attendance: 81 },
-            { name: "MECH", passed: 71, attendance: 76 },
-            { name: "CIVIL", passed: 74, attendance: 78 }
-        ]
-    };
+        const financeData = feeStats[0] || { totalRevenue: 0, totalDues: 0, defaulters: 0 };
+
+        // 2. Academic Aggregation (CAO-AI)
+        const attendanceStats = await Attendance.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    avgAttendance: { $avg: { $cond: ["$present", 100, 0] } }
+                }
+            }
+        ]);
+
+        // Department-wise pass rate
+        const resultStats = await Result.aggregate([
+            { $unwind: "$subjects" },
+            {
+                $group: {
+                    _id: "$studentId",
+                    studentAvg: { $avg: "$subjects.semesterMarks" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "userDetails"
+                }
+            },
+            { $unwind: "$userDetails" },
+            {
+                $group: {
+                    _id: "$userDetails.department",
+                    passRate: { $avg: { $cond: [{ $gte: ["$studentAvg", 40] }, 100, 0] } },
+                    avgScore: { $avg: "$studentAvg" }
+                }
+            }
+        ]);
+
+        const academicData = {
+            avgAttendance: attendanceStats[0]?.avgAttendance || 0,
+            departments: resultStats.map(d => ({
+                name: d._id,
+                passed: Math.round(d.passRate),
+                avgScore: Math.round(d.avgScore)
+            }))
+        };
+
+        return { financeData, academicData };
+    } catch (err) {
+        console.error("[AI CEO] Telemetry Acquisition Error:", err);
+        return null;
+    }
+};
+
+const runAutonomousEvaluation = async (io) => {
+    console.log("[AI CEO] Initiating Institutional Synthesis via Mongoose Pipelines...");
+    
+    // 1. Gather Telemetry (Real Data)
+    const telemetry = await fetchTelemetry();
+    if (!telemetry) return;
+
+    const { financeData, academicData } = telemetry;
 
     try {
         // 2. Multi-Agent Processing (Parallel)
@@ -69,3 +129,4 @@ module.exports = {
     },
     getLatestDirective: () => latestDirective
 };
+

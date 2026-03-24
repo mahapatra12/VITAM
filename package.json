@@ -9,7 +9,8 @@
     "client": "cd client && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "build": "cd client && npm install && npm run build && cd ../server && npm install",
-    "publish-ready": "npm run build && SET PUBLISH_MODE=true && npm start"
+    "publish-ready": "npm run build && SET PUBLISH_MODE=true && npm start",
+    "seed": "cd server && node -e \"require('./seed')()\""
   },
   "author": "Vitam Tech",
   "license": "MIT",
