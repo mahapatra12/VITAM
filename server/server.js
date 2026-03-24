@@ -30,12 +30,21 @@ const io = new Server(server, {
 app.set("io", io);
 
 app.use(cors({
-    origin: [
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "https://vitam-portal.vercel.app",
-        process.env.FRONTEND_URL
-    ].filter(Boolean),
+    origin: (origin, callback) => {
+        const allowedOrigins = [
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "https://vitam-portal.vercel.app",
+            "https://vitam-ai.vercel.app",
+            process.env.FRONTEND_URL
+        ].filter(Boolean);
+        
+        if (!origin || allowedOrigins.includes(origin) || origin.endsWith(".vercel.app")) {
+            callback(null, true);
+        } else {
+            callback(new Error("Not allowed by CORS"));
+        }
+    },
     credentials: true
 }));
 app.use(express.json());
