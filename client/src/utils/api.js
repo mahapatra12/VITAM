@@ -5,7 +5,7 @@ export const SOCKET_URL = API_BASE.replace('/api', '');
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 8000,
+  timeout: 30000,
 });
 
 // Automatically attach JWT token on every request
