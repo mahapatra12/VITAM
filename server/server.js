@@ -70,6 +70,7 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/finance", financeRoutes);
 app.use("/api/timetable", require("./routes/timetableRoutes"));
+app.use("/api/import", importRoutes); // New route
 
 app.get("/", (req, res) => res.send("VITAM Command API is active."));
 
