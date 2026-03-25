@@ -24,7 +24,7 @@ export const AuthProvider = ({ children }) => {
               setUser(data.user);
             }
           } catch (err) {
-            console.warn("[Auth] Session expired or server offline - clearing token", err.message);
+            console.warn("[Auth] Session expired - clearing token", err.message);
             if (!cancelled) {
               localStorage.removeItem(TOKEN_KEY);
               localStorage.removeItem('vitam_user');
