@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://vitam-ai.onrender.com/api';
+const API_BASE = (typeof window !== 'undefined' && window.location.hostname === 'localhost') 
+  ? 'http://localhost:5100/api'
+  : (import.meta.env.VITE_API_URL || 'https://vitam-ai.onrender.com/api');
 export const SOCKET_URL = API_BASE.replace('/api', '');
 
 const api = axios.create({

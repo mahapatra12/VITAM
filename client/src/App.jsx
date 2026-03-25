@@ -58,8 +58,7 @@ import TransitService from './pages/common/Transit';
 import StudentFinance from './pages/student/Finance';
 import SecurityPage from './pages/auth/Security';
 import ProfilePage from './pages/auth/Profile';
-import CommandHub from './components/CommandHub';
-import VITABot from './components/VITABot';
+import { lazy, Suspense } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
 import PagePlaceholder from './pages/PagePlaceholder';
 
@@ -72,8 +71,6 @@ import Calendar from './pages/common/Calendar';
 import AlumniDashboard from './pages/alumni/AlumniDashboard';
 import AlumniJobs from './pages/alumni/Jobs';
 import ParentDashboard from './pages/parent/Dashboard';
-import LiveTelemetry from './components/ui/LiveTelemetry';
-import GlobalGamification from './components/ui/GlobalGamification';
 import Landing from './pages/public/Landing';
 import Vault from './pages/common/Vault';
 import CampusMap from './pages/common/CampusMap';
@@ -81,19 +78,23 @@ import AnalyticsHub from './pages/common/AnalyticsHub';
 import NotFound from './pages/common/NotFound';
 import Grievance from './pages/common/Grievance';
 
+// Lazy-load heavier/always-mounted widgets to speed initial paint
+const CommandHub = lazy(() => import('./components/CommandHub'));
+const VITABot = lazy(() => import('./components/VITABot'));
+const LiveTelemetry = lazy(() => import('./components/ui/LiveTelemetry'));
+const GlobalGamification = lazy(() => import('./components/ui/GlobalGamification'));
+
 function AppContent() {
   const { user, loading } = useAuth();
 
   return (
     <div className="min-h-screen bg-black text-slate-200 selection:bg-blue-500/30">
-      {/* {loading && (
-        <div className="fixed inset-0 z-[999] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-6">
-          <div className="w-12 h-12 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-          <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[10px]">Institutional Node Initializing...</p>
-        </div>
-      )} */}
-      <CommandHub />
-      <VITABot />
+      <Suspense fallback={null}>
+        <CommandHub />
+      </Suspense>
+      <Suspense fallback={null}>
+        <VITABot />
+      </Suspense>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SecuritySetup />} />
@@ -181,8 +182,12 @@ function AppContent() {
         <Route path="/" element={<Landing />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <GlobalGamification />
-      <LiveTelemetry />
+      <Suspense fallback={null}>
+        <GlobalGamification />
+      </Suspense>
+      <Suspense fallback={null}>
+        <LiveTelemetry />
+      </Suspense>
     </div>
   );
 }
