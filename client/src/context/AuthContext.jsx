@@ -41,7 +41,6 @@ export const AuthProvider = ({ children }) => {
 
     initAuth();
 
-    // Safety Timeout: Force-resolve loading state after 1.5 seconds to prevent infinite spinner
     const safety = setTimeout(() => {
       if (!cancelled) {
         setLoading(false);
