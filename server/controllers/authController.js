@@ -67,9 +67,11 @@ exports.login = async (req, res) => {
 
         // ── Real DB path ──
         const user = await User.findOne({ email });
+        console.log(`[Auth] User found: ${!!user} | Target: ${email}`);
         if (!user) return res.status(400).json({ msg: "Invalid credentials" });
 
         const isMatch = await bcrypt.compare(password, user.password);
+        console.log(`[Auth] Password match: ${isMatch}`);
         if (!isMatch) {
             await logSecurityEvent(user._id, "Login Attempt", "Failed", "Incorrect password");
             return res.status(400).json({ msg: "Invalid credentials" });
