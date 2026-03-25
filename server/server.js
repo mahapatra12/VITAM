@@ -63,14 +63,21 @@ app.use(cors({
 }));
 app.use(express.json());
 
-app.get("/api/health", (req, res) => res.status(200).json({
-    status: "OK",
-    timestamp: new Date(),
-    db: mongoose.connection.readyState === 1 ? "Connected" : "Disconnected",
-    aiModel: "llama-3.3-70b-versatile",
-    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? "Configured" : "Missing"
-}));
-app.get("/health", (req, res) => res.status(200).json({ status: "OK", timestamp: new Date() }));
+app.get("/api/health", async (req, res) => {
+    try {
+        const User = require("./models/User");
+        const count = await User.countDocuments();
+        res.status(200).json({
+            status: "OK",
+            users: count,
+            db: mongoose.connection.readyState === 1 ? "Connected" : "Error",
+            ts: new Date()
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+app.get("/health", (req, res) => res.status(200).send("OK"));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);

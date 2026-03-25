@@ -14,26 +14,21 @@ export const AuthProvider = ({ children }) => {
     let cancelled = false;
 
     const initAuth = async () => {
-      const storedToken = localStorage.getItem(TOKEN_KEY);
-      if (storedToken) {
-        try {
-          console.log("[Auth] Session detected, verifying identity...");
-          const { data } = await api.get('/auth/profile');
-          if (!cancelled) {
-            if (data && data.user) {
+      try {
+        const storedToken = localStorage.getItem(TOKEN_KEY);
+        if (storedToken) {
+          try {
+            console.log("[Auth] Session detected, verifying identity...");
+            const { data } = await api.get('/auth/profile');
+            if (!cancelled && data && data.user) {
               setUser(data.user);
-            } else {
-              // Token exists but server returns no user — clear stale token
+            }
+          } catch (err) {
+            console.warn("[Auth] Session expired or server offline - clearing token", err.message);
+            if (!cancelled) {
               localStorage.removeItem(TOKEN_KEY);
               localStorage.removeItem('vitam_user');
             }
-          }
-        } catch (err) {
-          console.warn("[Auth] Session expired or server offline - clearing token", err.message);
-          // Clear stale token so user gets redirected to /login cleanly
-          if (!cancelled) {
-            localStorage.removeItem(TOKEN_KEY);
-            localStorage.removeItem('vitam_user');
           }
         }
       } finally {
