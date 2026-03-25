@@ -61,9 +61,11 @@ exports.login = async (req, res) => {
     console.log("Login attempt for:", req.body.email);
     try {
         let { email, password } = req.body;
+        console.log(`[Auth] RAW Email: "${email}"`);
         if (!email || !password) return res.status(400).json({ msg: "Missing credentials" });
 
         email = email.toLowerCase().trim();
+        console.log(`[Auth] PROCESSED Email: "${email}"`);
 
         // ── Real DB path ──
         const user = await User.findOne({ email });
