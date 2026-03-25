@@ -39,6 +39,8 @@ export default function ChairmanDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchData = async () => {
+      try {
         const { data: dashboardData } = await api.get('/chairman/dashboard');
         setData(dashboardData);
       } catch (err) {
