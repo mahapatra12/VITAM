@@ -96,7 +96,13 @@ const DashboardLayout = ({ children, title = 'Portal', role = 'ADMIN' }) => {
           }}
         />
 
-        <main className="flex-1 px-4 pb-8 pt-24 sm:px-6 lg:px-8 lg:pt-28">
+        <main
+          className="flex-1 px-4 pb-8 pt-20 sm:px-6 sm:pt-24 lg:px-8 lg:pt-28"
+          style={{
+            paddingLeft: 'max(env(safe-area-inset-left), 1rem)',
+            paddingRight: 'max(env(safe-area-inset-right), 1rem)',
+          }}
+        >
           <motion.div
             key={location.pathname}
             initial={{ opacity: 0, y: 10, filter: 'blur(6px)' }}
@@ -108,13 +114,16 @@ const DashboardLayout = ({ children, title = 'Portal', role = 'ADMIN' }) => {
           </motion.div>
         </main>
 
-        <footer className="px-4 pb-4 sm:px-6 lg:px-8">
-          <div className="mx-auto flex w-full max-w-[1500px] items-center justify-between rounded-xl border border-slate-700/60 bg-slate-900/60 px-4 py-3 text-xs text-slate-300">
+        <footer
+          className="px-4 pb-4 sm:px-6 lg:px-8"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 1rem)' }}
+        >
+          <div className="mx-auto flex w-full max-w-[1500px] flex-col items-start justify-between gap-2 rounded-2xl border border-slate-700/60 bg-slate-900/60 px-4 py-3 text-xs text-slate-300 backdrop-blur-lg sm:flex-row sm:items-center">
             <div className="flex items-center gap-2">
               <ShieldCheck size={14} className="text-emerald-400" />
               <span>{statusMessage}</span>
             </div>
-            <div className="flex items-center gap-3 text-[11px] text-slate-400">
+            <div className="hidden items-center gap-3 text-[11px] text-slate-400 md:flex">
               <button
                 type="button"
                 onClick={() => {

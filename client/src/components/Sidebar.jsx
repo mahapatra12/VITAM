@@ -202,9 +202,16 @@ const Sidebar = ({ role = 'ADMIN', isOpen, onClose }) => {
           />
         )}
       </AnimatePresence>
-      <aside className={`fixed inset-y-0 left-0 z-[60] w-[18rem] transition-all duration-500 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="absolute inset-0 bg-[#0f2027]/80 backdrop-blur-3xl border-r border-white/5" />
-        <div className="relative flex h-full flex-col px-6 py-8">
+      <aside
+        className={`fixed inset-y-0 left-0 z-[60] w-[85vw] max-w-[20rem] sm:w-[18rem] transition-all duration-500 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{
+          paddingTop: 'max(env(safe-area-inset-top), 0px)',
+          paddingBottom: 'max(env(safe-area-inset-bottom), 0px)',
+          paddingLeft: 'max(env(safe-area-inset-left), 0px)',
+        }}
+      >
+        <div className="absolute inset-0 border-r border-white/5 bg-[#0b0f17]/85 backdrop-blur-3xl" />
+        <div className="relative flex h-full flex-col px-5 py-7 sm:px-6 sm:py-8">
           <div className="mb-8 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#00c6ff] to-[#0072ff] flex items-center justify-center shadow-lg shadow-[#00c6ff]/20">
@@ -215,7 +222,7 @@ const Sidebar = ({ role = 'ADMIN', isOpen, onClose }) => {
                 <p className="text-[10px] uppercase tracking-[0.24em] text-slate-300">Campus Portal</p>
               </div>
             </div>
-            <button onClick={onClose} className="lg:hidden text-white/40 hover:text-white"><X size={20}/></button>
+            <button onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl text-white/40 hover:text-white lg:hidden"><X size={20}/></button>
           </div>
 
           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-8">

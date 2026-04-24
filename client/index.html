@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#071220" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#05070c" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F5F5F7" media="(prefers-color-scheme: light)" />
     <meta name="description" content="VITAM Autonomous Institutional Portal. Next-generation AI-powered ERP system for comprehensive campus management." />
     <meta name="keywords" content="VITAM, ERP, College Portal, AI Education, Campus Management" />
     <meta property="og:title" content="VITAM AI Command Center" />
@@ -29,14 +30,15 @@
         align-items: center;
         justify-content: center;
         height: 100vh;
-        background: #071220;
+        height: 100dvh;
+        background: #05070c;
       }
       #root:empty::after {
         content: "";
         width: 40px;
         height: 40px;
         border: 3px solid rgba(255,255,255,0.1);
-        border-top-color: #3b82f6;
+        border-top-color: #0a84ff;
         border-radius: 50%;
         animation: spin 1s linear infinite;
       }

@@ -357,44 +357,50 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="appleBackground min-h-screen px-4 py-10 text-slate-100 sm:px-6">
-      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-2">
-        <section className="glass-card hidden p-8 lg:block">
+    <div
+      className="appleBackground min-h-screen px-4 py-8 text-slate-100 sm:px-6 sm:py-10"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top), 2rem)',
+        paddingBottom: 'max(env(safe-area-inset-bottom), 2rem)',
+      }}
+    >
+      <div className="mx-auto grid w-full max-w-6xl gap-5 sm:gap-6 lg:grid-cols-2">
+        <section className="glass-card hidden p-6 sm:p-8 lg:block">
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-300">VITAM Access Platform</p>
-          <h1 className="mt-3 text-4xl font-extrabold text-white">Secure Login & Verification</h1>
+          <h1 className="mt-3 text-3xl font-extrabold text-white sm:text-4xl">Secure Login &amp; Verification</h1>
           <p className="mt-4 text-sm leading-7 text-slate-300">
             Sign in with password, verify with authenticator code, and optionally use passkey authentication on trusted
             devices.
           </p>
           <div className="mt-8 space-y-3">
-            <div className="flex items-center gap-3 rounded-lg border border-slate-700/70 bg-slate-900/60 p-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
               <ShieldCheck size={18} className="text-emerald-400" />
               <p className="text-sm">Role-based access and secure session controls</p>
             </div>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-700/70 bg-slate-900/60 p-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
               <KeyRound size={18} className="text-blue-300" />
               <p className="text-sm">Authenticator app support for TOTP</p>
             </div>
-            <div className="flex items-center gap-3 rounded-lg border border-slate-700/70 bg-slate-900/60 p-3">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
               <Fingerprint size={18} className="text-indigo-300" />
               <p className="text-sm">WebAuthn passkeys (up to 2 trusted devices)</p>
             </div>
           </div>
         </section>
 
-        <section className="glass-card p-6 sm:p-8">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
+        <section className="glass-card p-5 sm:p-8">
+          <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-blue-300">
                 {currentStep.eyebrow}
               </p>
-              <h2 className="mt-1 text-2xl font-bold text-white">{currentStep.title}</h2>
+              <h2 className="mt-1 text-xl font-bold text-white sm:text-2xl">{currentStep.title}</h2>
               <p className="mt-1 text-xs text-slate-400">{currentStep.description}</p>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-slate-400">
-              <span className={`h-2 w-2 rounded-full ${step >= 1 ? 'bg-blue-400' : 'bg-slate-600'}`} />
-              <span className={`h-2 w-2 rounded-full ${step >= 2 ? 'bg-blue-400' : 'bg-slate-600'}`} />
-              <span className={`h-2 w-2 rounded-full ${step >= 3 ? 'bg-blue-400' : 'bg-slate-600'}`} />
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+              <span className={`h-2 w-2 rounded-full ${step >= 1 ? 'bg-appleBlue' : 'bg-white/15'}`} />
+              <span className={`h-2 w-2 rounded-full ${step >= 2 ? 'bg-appleBlue' : 'bg-white/15'}`} />
+              <span className={`h-2 w-2 rounded-full ${step >= 3 ? 'bg-appleBlue' : 'bg-white/15'}`} />
             </div>
           </div>
 
