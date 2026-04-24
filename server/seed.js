@@ -80,8 +80,8 @@ const seedDatabase = async (options = {}) => {
         password: hashedPassword,
         role: 'chairman',
         subRole: 'none',
-        isTwoFactorEnabled: true,
-        isBiometricEnabled: true,
+        isTwoFactorEnabled: process.env.ALLOW_IN_MEMORY_FALLBACK !== 'true',
+        isBiometricEnabled: process.env.ALLOW_IN_MEMORY_FALLBACK !== 'true',
         twoFactorSecret: 'JBSWY3DPEHPK3PXP',
         isFirstLogin: false,
         collegeId: defaultCollege._id
