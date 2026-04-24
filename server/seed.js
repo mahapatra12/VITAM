@@ -174,10 +174,11 @@ const seedDatabase = async (options = {}) => {
 
     if (String(process.env.ALLOW_IN_MEMORY_FALLBACK || '').trim().toLowerCase() === 'true') {
       users.forEach(u => {
-        if (!u.isFirstLogin) {
-          u.isTwoFactorEnabled = false;
-          u.isBiometricEnabled = false;
-        }
+        // In ephemeral CI runs, disable all MFA gates for every user so soak
+        // tests (--repeat-each=3) don't deadlock on the passkey flow on re-runs.
+        u.isTwoFactorEnabled = false;
+        u.isBiometricEnabled = false;
+        u.isFirstLogin = false;
       });
     }
 
