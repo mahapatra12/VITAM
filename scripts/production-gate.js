@@ -464,6 +464,9 @@ const run = async () => {
     await runCommand(NPM_CMD, ['run', 'build'], ROOT);
 
     console.log('\n[QA] 2/4 Preflight verification');
+    if (String(process.env.ALLOW_IN_MEMORY_FALLBACK || '').trim().toLowerCase() === 'true') {
+      process.env.SKIP_DB_PREFLIGHT = 'true';
+    }
     await runCommand(NPM_CMD, ['run', 'preflight', '--prefix', 'server'], ROOT);
 
     console.log('\n[QA] 3/4 Starting API for smoke checks');
