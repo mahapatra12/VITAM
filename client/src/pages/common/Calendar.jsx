@@ -137,7 +137,7 @@ export default function MasterCalendar() {
         </div>
       </div>
 
-      <AIChat role={user?.role?.toLowerCase() || "system"} />
+      {user?.role === 'STUDENT' && <AIChat role="student" />}
     </DashboardLayout>
   );
 }

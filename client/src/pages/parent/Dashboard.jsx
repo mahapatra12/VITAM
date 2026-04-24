@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, BookOpen, Clock, AlertTriangle, CheckCircle2, TrendingUp, MessageCircle, CreditCard, Bell, ChevronRight, Phone, Mail, MapPin, Award } from 'lucide-react';
+import {
+  User, BookOpen, Clock, AlertTriangle, TrendingUp, MessageCircle,
+  ShieldCheck, Brain, Sparkles, ChevronRight, Mail, Phone, MapPin
+} from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { GlassCard } from '../../components/ui/DashboardComponents';
-import { useAuth } from '../../context/AuthContext';
+import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  PieChart, Pie, Cell
+} from 'recharts';
 import { useToast } from '../../components/ui/ToastSystem';
 
 const WARD = {
@@ -13,239 +19,192 @@ const WARD = {
   semester: '5th Semester',
   batch: '2022–26',
   cgpa: 8.74,
-  attendanceOverall: 91.2,
-  photo: null,
+  attendance: 91.2,
 };
+
+const TRAJECTORY = [
+  { term: 'SEM 1', gpa: 8.2 },
+  { term: 'SEM 2', gpa: 8.5 },
+  { term: 'SEM 3', gpa: 8.1 },
+  { term: 'SEM 4', gpa: 8.4 },
+  { term: 'SEM 5', gpa: 8.7 },
+];
 
 const SUBJECTS = [
   { name: 'Data Structures', code: 'CS301', faculty: 'Dr. S. Mehta', attendance: 94, internal: 38, max: 40, grade: 'O' },
   { name: 'Operating Systems', code: 'CS401', faculty: 'Dr. R. Patel', attendance: 88, internal: 35, max: 40, grade: 'A+' },
   { name: 'Cloud Computing', code: 'CS501', faculty: 'Prof. V. Iyer', attendance: 96, internal: 37, max: 40, grade: 'O' },
-  { name: 'Software Engineering', code: 'CS601', faculty: 'Dr. N. Singh', attendance: 85, internal: 32, max: 40, grade: 'A' },
-  { name: 'DBMS', code: 'CS302', faculty: 'Prof. A. Kumar', attendance: 91, internal: 36, max: 40, grade: 'O' },
+  { name: 'S/W Engineering', code: 'CS601', faculty: 'Dr. N. Singh', attendance: 85, internal: 32, max: 40, grade: 'A' },
 ];
 
-const TIMELINE = [
-  { date: 'Mar 20', event: 'Unit Test 4 Result', detail: 'Scored 38/40 in Data Structures', type: 'success' },
-  { date: 'Mar 18', event: 'Library Book Returned', detail: '"Algorithms" by Cormen returned on time', type: 'info' },
-  { date: 'Mar 15', event: 'Attendance Alert', detail: 'OS attendance dropped to 87%. Min 75% required', type: 'warning' },
-  { date: 'Mar 10', event: 'Fee Acknowledged', detail: 'Semester IV fee receipt generated', type: 'success' },
+const HEALTH_CHART = [
+  { name: 'Attendance', value: 91, fill: '#10b981' },
+  { name: 'Gap', value: 9, fill: '#ffffff10' },
 ];
 
-const GRADE_COLOR = { O: '#10b981', 'A+': '#3b82f6', A: '#8b5cf6', B: '#f59e0b' };
+const TS = { 
+  contentStyle: { backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12 }, 
+  itemStyle: { color: '#e2e8f0' }, 
+  labelStyle: { color: '#94a3b8', fontWeight: 700 } 
+};
 
 export default function ParentDashboard() {
-  const { user } = useAuth();
   const { push } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
-  const [msgText, setMsgText] = useState('');
+  const [aiInsight, setAiInsight] = useState('');
+
+  useEffect(() => {
+    setTimeout(() => {
+      setAiInsight('System Analysis: Aarav is in the top 15% of his batch. Attendance is optimal at 91.2%. Predicted end-semester CGPA: 8.85.');
+    }, 1800);
+  }, []);
 
   const handleMessage = (e) => {
     e.preventDefault();
-    if (!msgText.trim()) return;
-    push({ type: 'success', title: 'Message Sent', body: `Your concern has been forwarded to the Class Advisor and HOD.` });
-    setMsgText('');
+    push({ type: 'success', title: 'Query Submitted', body: 'The Class Advisor has been notified of your inquiry.' });
   };
 
-  const atRisk = SUBJECTS.filter(s => s.attendance < 90);
-
   return (
-    <DashboardLayout title="Parent Guardian Portal" role={user?.role || 'PARENT'}>
-      {/* Ward Banner */}
-      <div className="mb-8 p-6 rounded-3xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-blue-500/10 border border-indigo-500/20">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-2xl font-black text-white border border-white/20 shadow-xl flex-shrink-0">
+    <DashboardLayout title="Guardian Operations Portal" role="PARENT">
+      
+      <div className="mb-14 p-12 rounded-[4rem] bg-indigo-600/[0.02] border border-white/5 relative overflow-hidden group shadow-2xl">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-indigo-600/5 blur-[120px] -translate-y-1/2 translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-12">
+          <div className="w-28 h-28 rounded-[2.5rem] bg-gradient-to-br from-indigo-600 to-indigo-800 flex items-center justify-center text-5xl font-black text-white border border-white/10 shadow-2xl italic">
             {WARD.name[0]}
           </div>
-          <div className="flex-1">
-            <h2 className="text-2xl font-black text-white">{WARD.name}</h2>
-            <div className="flex flex-wrap gap-3 mt-2">
+          <div className="flex-1 text-center md:text-left">
+            <p className="text-[11px] font-black uppercase tracking-[0.5em] text-indigo-500 mb-4 italic">Verified Institutional Guardian</p>
+            <h2 className="text-7xl font-black text-white tracking-tighter italic uppercase leading-none">Ward: {WARD.name}</h2>
+            <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-5">
               {[WARD.regNo, WARD.branch, WARD.semester, WARD.batch].map(v => (
-                <span key={v} className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-lg">{v}</span>
+                <span key={v} className="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-400 bg-indigo-500/10 border border-indigo-500/10 px-4 py-2 rounded-2xl italic">{v}</span>
               ))}
             </div>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-12">
             <div className="text-center">
-              <p className="text-3xl font-black text-white">{WARD.cgpa}</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">CGPA</p>
+              <p className="text-5xl font-black text-white tracking-tighter italic">{WARD.cgpa}</p>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2 italic">Current CGPA</p>
             </div>
-            <div className="w-px h-12 bg-white/10" />
+            <div className="w-px h-20 bg-white/5" />
             <div className="text-center">
-              <p className={`text-3xl font-black ${WARD.attendanceOverall >= 90 ? 'text-emerald-400' : 'text-amber-400'}`}>{WARD.attendanceOverall}%</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-widest mt-1">Attendance</p>
+              <p className="text-5xl font-black text-emerald-500 tracking-tighter italic">{WARD.attendance}%</p>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-2 italic">Attendance</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-        {[
-          { id: 'overview', label: '📊 Overview' },
-          { id: 'subjects', label: '📚 Subjects' },
-          { id: 'timeline', label: '🕐 Timeline' },
-          { id: 'contact', label: '💬 Contact' },
-        ].map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-            className={`flex-shrink-0 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-indigo-500 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)]' : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10'}`}>
-            {tab.label}
-          </button>
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+        <GlassCard title="Performance Trajectory" subtitle="Semester-wise GPA progression analysis" className="lg:col-span-2 bg-white/[0.02] border-white/5 rounded-[40px] p-8">
+          <div className="h-[320px] mt-6">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={TRAJECTORY}>
+                <defs>
+                  <linearGradient id="colorGpa" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff03" vertical={false} />
+                <XAxis dataKey="term" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 900 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} domain={[7, 10]} />
+                <Tooltip {...TS} />
+                <Area type="monotone" dataKey="gpa" stroke="#6366f1" strokeWidth={5} fillOpacity={1} fill="url(#colorGpa)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+
+        <GlassCard title="Attendance Overview" subtitle="Compliance with institutional standards" className="flex flex-col items-center justify-center bg-white/[0.02] border-white/5 rounded-[40px] p-8">
+          <div className="h-[240px] w-full mt-4 relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={HEALTH_CHART} cx="50%" cy="100%" startAngle={180} endAngle={0} innerRadius={80} outerRadius={120} paddingAngle={2} dataKey="value" stroke="none">
+                  {HEALTH_CHART.map((e, index) => <Cell key={index} fill={e.fill} />)}
+                </Pie>
+                <Tooltip hide />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="absolute top-[65%] left-1/2 -translate-x-1/2 text-center text-white">
+              <p className="text-5xl font-black tracking-tighter italic">91%</p>
+              <p className="text-[10px] text-emerald-500 font-black uppercase tracking-[0.2em] mt-2 italic">Optimal</p>
+            </div>
+          </div>
+          <div className="p-8 bg-indigo-600/5 border border-indigo-500/10 mt-10 w-full rounded-[2.5rem] relative overflow-hidden group/insight">
+            <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.4em] mb-4 italic">Strategic Synthesis</p>
+            <p className="text-base text-white font-bold italic leading-relaxed tracking-tight">"{aiInsight}"</p>
+            <Brain size={48} className="absolute bottom-0 right-0 p-4 opacity-5 group-hover/insight:scale-110 transition-transform" />
+          </div>
+        </GlassCard>
       </div>
 
-      <AnimatePresence mode="wait">
-        {activeTab === 'overview' && (
-          <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <GlassCard className="lg:col-span-2 p-6">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-5 flex items-center gap-2"><TrendingUp size={14} /> Academic Snapshot</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {[
-                  { label: 'Overall CGPA', value: WARD.cgpa, unit: '/10', good: WARD.cgpa >= 8 },
-                  { label: 'Att. This Sem', value: `${WARD.attendanceOverall}%`, good: WARD.attendanceOverall >= 85 },
-                  { label: 'Active Subjects', value: SUBJECTS.length, good: true },
-                  { label: 'Best Subject', value: 'DS', unit: '38/40', good: true },
-                  { label: 'Subjects At Risk', value: atRisk.length, good: atRisk.length === 0 },
-                  { label: 'Rank (Class)', value: '#12', unit: '/60', good: true },
-                ].map(s => (
-                  <div key={s.label} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5">
-                    <p className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-2">{s.label}</p>
-                    <p className={`text-xl font-black ${s.good ? 'text-white' : 'text-amber-400'}`}>{s.value} <span className="text-slate-600 text-xs">{s.unit}</span></p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+        <GlassCard title="Academic Scorecard" subtitle="Live subject metrics & faculty assessment" className="bg-white/[0.02] border-white/5 rounded-[40px] p-10">
+          <div className="mt-8 space-y-5">
+            {SUBJECTS.map((s) => (
+              <div key={s.code} className="p-6 bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-all rounded-3xl">
+                <div className="flex justify-between items-start mb-5">
+                  <div>
+                    <p className="text-white font-black text-base italic">{s.name}</p>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1 italic">{s.faculty} · {s.code}</p>
                   </div>
-                ))}
+                  <span className="text-xs font-black px-4 py-1.5 rounded-full bg-indigo-600/10 text-indigo-400 border border-indigo-600/20 italic">{s.grade}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-8">
+                  <div>
+                    <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">
+                      <span>Attendance</span><span>{s.attendance}%</span>
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${s.attendance}%` }} className={`h-full rounded-full ${s.attendance < 90 ? 'bg-amber-600' : 'bg-emerald-600'}`} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-[9px] font-black text-slate-500 uppercase tracking-widest mb-2 italic">
+                      <span>Internal Score</span><span>{s.internal}/{s.max}</span>
+                    </div>
+                    <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${(s.internal/s.max)*100}%` }} className="h-full bg-indigo-600 rounded-full" />
+                    </div>
+                  </div>
+                </div>
               </div>
-            </GlassCard>
-            <div className="space-y-4">
-              {atRisk.length > 0 && (
-                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
-                  <p className="text-xs font-black text-amber-400 flex items-center gap-2 mb-3"><AlertTriangle size={14} /> Attendance Alerts</p>
-                  {atRisk.map(s => (
-                    <div key={s.code} className="flex justify-between text-[10px] font-bold py-1 border-b border-white/5 last:border-0">
-                      <span className="text-slate-300">{s.name}</span>
-                      <span className="text-amber-400">{s.attendance}%</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <GlassCard className="p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2"><Award size={12} /> Grade Summary</p>
-                <div className="flex gap-2 flex-wrap">
-                  {SUBJECTS.map(s => (
-                    <div key={s.code} className="px-3 py-1.5 rounded-xl text-xs font-black border" style={{ color: GRADE_COLOR[s.grade] || '#94a3b8', borderColor: `${GRADE_COLOR[s.grade]}30` || '#334155', background: `${GRADE_COLOR[s.grade]}10` }}>
-                      {s.code.slice(-3)} · {s.grade}
-                    </div>
-                  ))}
-                </div>
-              </GlassCard>
-            </div>
-          </motion.div>
-        )}
-
-        {activeTab === 'subjects' && (
-          <motion.div key="subjects" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-3">
-            {SUBJECTS.map((sub, i) => (
-              <motion.div key={sub.code} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.06 }}
-                className="p-5 rounded-3xl bg-[#080808] border border-white/5 hover:border-white/10 transition-all">
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-[9px] font-black text-slate-500 bg-white/5 px-2 py-0.5 rounded">{sub.code}</span>
-                      <h4 className="text-sm font-black text-white">{sub.name}</h4>
-                      <span className="ml-auto text-[10px] font-black px-2 py-0.5 rounded-lg" style={{ color: GRADE_COLOR[sub.grade], background: `${GRADE_COLOR[sub.grade]}15` }}>{sub.grade}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mb-3">{sub.faculty}</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <div className="flex justify-between text-[9px] font-bold text-slate-500 mb-1">
-                          <span>Attendance</span><span className={sub.attendance < 90 ? 'text-amber-400' : 'text-emerald-400'}>{sub.attendance}%</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${sub.attendance}%` }} transition={{ duration: 0.8, delay: i * 0.07 }}
-                            className="h-full rounded-full" style={{ background: sub.attendance < 90 ? '#f59e0b' : '#10b981' }} />
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between text-[9px] font-bold text-slate-500 mb-1">
-                          <span>Internal</span><span className="text-blue-400">{sub.internal}/{sub.max}</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: `${(sub.internal / sub.max) * 100}%` }} transition={{ duration: 0.8, delay: i * 0.07 }}
-                            className="h-full rounded-full bg-blue-500" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
             ))}
-          </motion.div>
-        )}
+          </div>
+        </GlassCard>
 
-        {activeTab === 'timeline' && (
-          <motion.div key="timeline" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-            <div className="relative pl-6 space-y-4 border-l border-white/10">
-              {TIMELINE.map((item, i) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }} className="relative">
-                  <div className={`absolute -left-[29px] w-4 h-4 rounded-full border-2 border-[#050505] ${item.type === 'success' ? 'bg-emerald-500' : item.type === 'warning' ? 'bg-amber-500' : 'bg-blue-500'}`} />
-                  <div className="p-4 rounded-2xl bg-[#080808] border border-white/5 ml-4">
-                    <div className="flex justify-between items-start">
-                      <p className="text-sm font-black text-white">{item.event}</p>
-                      <span className="text-[9px] text-slate-500 font-mono ml-4 flex-shrink-0">{item.date}</span>
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">{item.detail}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-
-        {activeTab === 'contact' && (
-          <motion.div key="contact" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <GlassCard className="p-6">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-5">Contact Faculty</h3>
-              <div className="space-y-3 mb-6">
-                {SUBJECTS.slice(0, 3).map(s => (
-                  <div key={s.code} className="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all">
-                    <div>
-                      <p className="text-xs font-black text-white">{s.faculty}</p>
-                      <p className="text-[9px] text-slate-500">{s.name}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => push({ type: 'info', title: 'Email Composed', body: `Draft to ${s.faculty} opened.` })} className="p-2 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"><Mail size={14}/></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <form onSubmit={handleMessage}>
-                <textarea value={msgText} onChange={e => setMsgText(e.target.value)} rows={4}
-                  placeholder="Write your concern or query to the Class Advisor & HOD..."
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm text-white resize-none focus:outline-none focus:border-indigo-500/50 transition-colors mb-3 placeholder:text-slate-600" />
-                <button type="submit" className="w-full py-3 bg-indigo-500 hover:bg-indigo-400 text-white font-black text-xs uppercase tracking-widest rounded-2xl transition-colors flex items-center justify-center gap-2">
-                  <MessageCircle size={14} /> Send Concern
-                </button>
-              </form>
-            </GlassCard>
-            <GlassCard className="p-6">
-              <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-5">Institute Contact</h3>
+        <GlassCard title="Support & Feedback" subtitle="Institutional communication channel" icon={ShieldCheck} className="bg-white/[0.02] border-white/5 rounded-[40px] p-10">
+          <div className="mt-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
                 { icon: Phone, label: 'Reception', value: '+91 80-4521 9900' },
-                { icon: Mail, label: 'Registrar', value: 'registrar@vitam.edu.in' },
-                { icon: MapPin, label: 'Campus', value: 'Whitefield, Bengaluru – 560066' },
-                { icon: Clock, label: 'Office Hours', value: 'Mon–Sat, 9:00 AM – 5:00 PM' },
+                { icon: Mail, label: 'Class Advisor', value: 'advisor.cs@vitam.edu.in' },
               ].map(c => (
-                <div key={c.label} className="flex items-center gap-4 py-4 border-b border-white/5 last:border-0">
-                  <div className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 flex-shrink-0"><c.icon size={16} /></div>
+                <div key={c.label} className="flex items-center gap-5 p-5 bg-white/[0.03] border border-white/5 rounded-3xl">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400"><c.icon size={20} /></div>
                   <div>
-                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">{c.label}</p>
-                    <p className="text-xs font-bold text-white mt-0.5">{c.value}</p>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest italic">{c.label}</p>
+                    <p className="text-xs font-bold text-white mt-1 italic">{c.value}</p>
                   </div>
                 </div>
               ))}
-            </GlassCard>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+            <form onSubmit={handleMessage} className="space-y-6">
+              <div className="group">
+                <label className="text-[10px] font-black text-slate-600 uppercase tracking-[0.3em] mb-3 block italic">Inquiry Details</label>
+                <textarea placeholder="Specify your query or feedback for the academic department..." 
+                  className="w-full h-40 p-6 bg-white/[0.03] border border-white/10 rounded-[2rem] text-white text-base font-bold focus:outline-none focus:border-indigo-500/50 transition-all resize-none placeholder:text-slate-700 italic" />
+              </div>
+              <button type="submit" className="w-full py-6 rounded-[2rem] bg-indigo-600 text-white font-black text-base hover:bg-indigo-500 transition-all shadow-2xl shadow-indigo-600/20 flex items-center justify-center gap-3 italic">
+                <MessageCircle size={20} /> Submit Inquiry
+              </button>
+            </form>
+          </div>
+        </GlassCard>
+      </div>
+
     </DashboardLayout>
   );
 }

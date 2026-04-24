@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
 import { Briefcase, Users, TrendingUp, Award, Star, Building2, Target, Zap } from 'lucide-react';
-import AIChat from '../../components/AIChat';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  PieChart, Pie, Cell, Legend, AreaChart, Area
 } from 'recharts';
+import SystemStatusPanel from '../../components/ui/SystemStatusPanel';
+import CommandFeed from '../../components/ui/CommandFeed';
+import { useHealth } from '../../context/HealthContext';
+import Telemetry from '../../utils/telemetry';
+import SafeChart from '../../components/ui/SafeChart';
 
 const RECRUITER_DATA = [
   { company: 'Google', package: 32, hired: 4, sector: 'Tech' },
@@ -40,7 +45,17 @@ const INDUSTRY_MATCH = [
   { branch: 'CIVIL', match: 47, avg_pkg: 5.8, placed: 55 },
 ];
 
+const TRAJECTORY_DATA = [
+  { month: 'Oct', velocity: 15, predicted: 18 },
+  { month: 'Nov', velocity: 32, predicted: 35 },
+  { month: 'Dec', velocity: 48, predicted: 52 },
+  { month: 'Jan', velocity: 64, predicted: 70 },
+  { month: 'Feb', velocity: 78, predicted: 85 },
+  { month: 'Mar', velocity: 89, predicted: 94 },
+];
+
 export default function PlacementDashboard() {
+  const { health } = useHealth();
   const [aiInsight, setAiInsight] = useState('');
 
   useEffect(() => {
@@ -57,9 +72,26 @@ export default function PlacementDashboard() {
 
   return (
     <DashboardLayout title="Placement Management" role="ADMIN">
-      <div className="mb-8">
-        <h2 className="text-3xl font-black text-white tracking-tight">Placement Command</h2>
-        <p className="text-slate-400 font-medium mt-1">Industry match analysis & recruiter intelligence</p>
+      <div className="mb-12 flex flex-col xl:flex-row xl:items-center justify-between gap-8">
+        <div>
+          <motion.p 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className={`text-[10px] font-black uppercase tracking-[0.6em] mb-4 ${health.entropy > 40 ? 'text-red-400' : 'text-blue-400'} italic`}
+          >
+            INSTITUTIONAL PLACEMENT HUB · {health.entropy > 40 ? 'Market Drift' : 'Q1 Drive Active'}
+          </motion.p>
+          <h2 className="text-6xl font-black text-white tracking-tighter text-premium-gradient italic mb-1 uppercase">
+             Placement <span className="text-blue-500">Command</span>
+          </h2>
+          <p className="text-slate-400 font-bold mt-2 max-w-xl italic leading-relaxed uppercase text-[10px] tracking-widest">
+            Corporate matchmaking intelligence, neural trajectory predictions & institutional recruiter telemetry.
+          </p>
+        </div>
+
+        <div className="flex-shrink-0">
+          <SystemStatusPanel mode="CAMPUS" />
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -101,7 +133,7 @@ export default function PlacementDashboard() {
         {/* Domain Distribution */}
         <GlassCard title="Placement Domain Split" subtitle="Where students are getting placed">
           <div className="h-[240px] mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+            <SafeChart minHeight={240}>
               <PieChart>
                 <Pie data={DOMAIN_DATA} cx="50%" cy="50%" innerRadius={55} outerRadius={90}
                   paddingAngle={3} dataKey="value">
@@ -119,66 +151,94 @@ export default function PlacementDashboard() {
                   formatter={(value) => <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>{value}</span>}
                 />
               </PieChart>
-            </ResponsiveContainer>
+            </SafeChart>
           </div>
         </GlassCard>
       </div>
 
-      {/* Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Package Distribution */}
-        <GlassCard title="Package Distribution" subtitle="Students per salary bracket">
-          <div className="h-[220px] mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={PACKAGE_DIST}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="range" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: 12 }}
-                  itemStyle={{ color: '#fff' }}
-                />
-                <Bar dataKey="students" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+      {/* Row 2: Matchmaking & Trajectory */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        {/* Matchmaking Telemetry */}
+        <GlassCard title="Matchmaking Telemetry" subtitle="Live corporate interaction vectors" className="lg:col-span-1">
+           <CommandFeed limit={5} filter={['INFO']} className="h-[300px]" />
         </GlassCard>
 
-        {/* Recruiter Tracker */}
+        {/* Career Trajectory Prediction */}
+        <GlassCard title="Career Trajectory Pulse" subtitle="Neural velocity vs Predicted growth" className="lg:col-span-2">
+          <div className="h-[300px] mt-4">
+            <SafeChart minHeight={300}>
+              <AreaChart data={TRAJECTORY_DATA}>
+                <defs>
+                  <linearGradient id="colorVelocity" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorPredicted" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis dataKey="month" tick={{ fill: '#475569', fontSize: 10, fontWeight: 900 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: '#475569', fontSize: 10 }} axisLine={false} tickLine={false} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#000', border: '1px solid #ffffff10', borderRadius: '16px' }}
+                  itemStyle={{ textTransform: 'uppercase', fontSize: '10px', fontWeight: '900' }}
+                />
+                <Area type="monotone" dataKey="velocity" stroke="#3b82f6" strokeWidth={4} fillOpacity={1} fill="url(#colorVelocity)" />
+                <Area type="monotone" dataKey="predicted" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" fillOpacity={1} fill="url(#colorPredicted)" />
+              </AreaChart>
+            </SafeChart>
+          </div>
+          <div className="mt-4 flex items-center justify-between px-2">
+             <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Active Velocity</span>
+             </div>
+             <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Predicted Target</span>
+             </div>
+          </div>
+        </GlassCard>
+      </div>
+
+      {/* Row 3: Advanced Recruiter Grid & AI Intelligence */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <GlassCard title="Top Recruiters" subtitle="On-campus drive analytics">
-          <div className="mt-3 space-y-2 overflow-y-auto max-h-[220px] pr-1">
-            {RECRUITER_DATA.map((r, i) => (
-              <div key={r.company} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
+          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[300px] pr-1">
+            {RECRUITER_DATA.map((r) => (
+              <div key={r.company} className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl flex items-center justify-between group hover:border-blue-500/20 transition-all">
                 <div className="flex items-center gap-3">
-                  <span className="text-slate-500 text-xs font-black w-5">#{i + 1}</span>
+                  <div className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-blue-400 group-hover:bg-blue-600 group-hover:text-white transition-all">
+                    <Building2 size={14} />
+                  </div>
                   <div>
-                    <p className="text-white font-black text-sm">{r.company}</p>
-                    <p className="text-slate-400 text-xs">{r.sector}</p>
+                    <p className="text-white font-black text-sm uppercase tracking-tight">{r.company}</p>
+                    <p className="text-slate-500 text-[9px] font-black uppercase tracking-widest">{r.sector}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-emerald-400 font-black text-sm">₹{r.package} LPA</p>
-                  <p className="text-slate-400 text-xs">{r.hired} hired</p>
+                  <p className="text-emerald-400 font-black text-sm">₹{r.package}L</p>
                 </div>
               </div>
             ))}
           </div>
         </GlassCard>
-      </div>
 
-      {/* AI Placement Intelligence */}
-      <GlassCard title="AI Placement Intelligence" subtitle="Autonomous market analysis & recommendations" icon={Zap}>
-        <div className="mt-3 min-h-[80px] flex items-start">
-          {aiInsight ? (
-            <p className="text-emerald-400 font-medium leading-relaxed text-sm">{aiInsight}</p>
-          ) : (
-            <span className="text-slate-500 italic flex items-center gap-2 m-auto text-sm">
-              <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
-              Computing industry-match vectors...
-            </span>
-          )}
-        </div>
-      </GlassCard>
+        <GlassCard title="AI Placement Intelligence" subtitle="Autonomous market analysis & recommendations" icon={Zap}>
+          <div className="mt-3 min-h-[80px] flex flex-col justify-center">
+            {aiInsight ? (
+              <p className="text-emerald-400 font-bold leading-relaxed text-sm italic">"{aiInsight}"</p>
+            ) : (
+              <span className="text-slate-500 italic flex items-center gap-2 text-sm">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-ping" />
+                Computing industry-match vectors...
+              </span>
+            )}
+          </div>
+        </GlassCard>
+      </div>
     </DashboardLayout>
   );
 }

@@ -4,8 +4,10 @@ import { Upload, FileText, CheckCircle, AlertCircle, Download, DatabaseZap, Load
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { GlassCard } from '../../components/ui/DashboardComponents';
 import api from '../../utils/api';
+import { useToast } from '../../components/ui/ToastSystem';
 
 export default function BulkImport() {
+  const { push } = useToast();
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [results, setResults] = useState(null);
@@ -15,7 +17,14 @@ export default function BulkImport() {
   };
 
   const handleUpload = async () => {
-    if (!file) return alert("Please select a file first.");
+    if (!file) {
+      push({
+        type: 'warning',
+        title: 'Select a CSV First',
+        body: 'Choose an institutional CSV file before starting the bulk import pipeline.'
+      });
+      return;
+    }
 
     const formData = new FormData();
     formData.append("file", file);
@@ -30,8 +39,17 @@ export default function BulkImport() {
         }
       });
       setResults(data);
+      push({
+        type: 'success',
+        title: 'Bulk Import Completed',
+        body: data?.msg || 'Institutional roster import finished successfully.'
+      });
     } catch (err) {
-      alert("Import failed: " + (err.response?.data?.msg || err.message));
+      push({
+        type: 'error',
+        title: 'Bulk Import Failed',
+        body: err.response?.data?.msg || err.message || 'Unable to process the CSV import right now.'
+      });
     } finally {
       setUploading(false);
     }

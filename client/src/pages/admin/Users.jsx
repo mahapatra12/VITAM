@@ -1,25 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users as UsersIcon, Shield, Briefcase, GraduationCap, Server } from 'lucide-react';
+import { Briefcase, RefreshCcw, Server, Shield, Users as UsersIcon } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
+import { StatCard } from '../../components/ui/DashboardComponents';
 import AdvancedDataGrid from '../../components/ui/AdvancedDataGrid';
+import api from '../../utils/api';
+import { useToast } from '../../components/ui/ToastSystem';
 
-const MOCK_USERS = [
-  { id: 'USR-001', name: 'Dr. Alaric Sovereign', role: 'CHAIRMAN', email: 'chairman@vitam.edu.in', status: 'Active', lastLogin: '10 mins ago' },
-  { id: 'USR-002', name: 'Prof. Meera Reddy', role: 'DIRECTOR', email: 'director@vitam.edu.in', status: 'Active', lastLogin: '1 hour ago' },
-  { id: 'USR-003', name: 'Dr. Venkat Rao', role: 'PRINCIPAL', email: 'principal@vitam.edu.in', status: 'Active', lastLogin: '3 hours ago' },
-  { id: 'USR-004', name: 'Anil Kumar', role: 'FINANCE', email: 'finance@vitam.edu.in', status: 'Active', lastLogin: '45 mins ago' },
-  { id: 'USR-005', name: 'System Root', role: 'ADMIN', email: 'admin@vitam.edu', status: 'Active', lastLogin: 'Right now' },
-  { id: 'USR-006', name: 'Dr. Sarah Thomas', role: 'HOD', email: 'hod_cse@vitam.edu.in', status: 'Offline', lastLogin: 'Yesterday' },
-  { id: 'USR-007', name: 'Rajiv Sharma', role: 'EXAM', email: 'exam@vitam.edu.in', status: 'Active', lastLogin: '2 hours ago' },
-  { id: 'USR-008', name: 'Sneha Patel', role: 'PLACEMENT', email: 'placement@vitam.edu.in', status: 'Active', lastLogin: '5 hours ago' },
-  { id: 'USR-009', name: 'K. Raju', role: 'BUS', email: 'transport@vitam.edu.in', status: 'Offline', lastLogin: '2 days ago' },
-  { id: 'USR-010', name: 'Dr. K. Srinivas', role: 'FACULTY', email: 'faculty@vitam.edu.in', status: 'Active', lastLogin: '8 hours ago' },
-  { id: 'USR-011', name: 'Suresh Kumar', role: 'STUDENT', email: 'student@vitam.edu.in', status: 'Active', lastLogin: '15 mins ago' },
-  { id: 'USR-012', name: 'Aman Singh', role: 'STUDENT', email: 'aman@vitam.edu.in', status: 'Suspended', lastLogin: 'Last month' },
-  { id: 'USR-013', name: 'Priya Das', role: 'STUDENT', email: 'priya@vitam.edu.in', status: 'Active', lastLogin: '3 days ago' },
-];
+const formatRoleLabel = (role, subRole) => {
+  const normalizedRole = String(role || '').toLowerCase();
+  const normalizedSubRole = String(subRole || 'none').toLowerCase();
+
+  if (normalizedRole === 'admin' && normalizedSubRole !== 'none') {
+    return `ADMIN (${normalizedSubRole.replace(/_/g, ' ').toUpperCase()})`;
+  }
+
+  return String(role || 'UNKNOWN').replace(/_/g, ' ').toUpperCase();
+};
+
+const formatDateLabel = (value) => {
+  if (!value) return 'Never';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return 'Never';
+  return parsed.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 
 const COLUMNS = [
   { key: 'id', label: 'ID' },
@@ -37,8 +47,8 @@ const COLUMNS = [
   )},
   { key: 'role', label: 'Authority', render: (val) => (
     <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border ${
-      val === 'CHAIRMAN' || val === 'DIRECTOR' ? 'bg-amber-500/10 text-amber-400 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]' :
-      val === 'ADMIN' ? 'bg-red-500/10 text-red-400 border-red-500/30' :
+      val.includes('CHAIRMAN') || val.includes('DIRECTOR') ? 'bg-amber-500/10 text-amber-400 border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]' :
+      val.includes('ADMIN') ? 'bg-red-500/10 text-red-400 border-red-500/30' :
       val === 'STUDENT' ? 'bg-slate-800 text-slate-300 border-slate-700' :
       'bg-blue-500/10 text-blue-400 border-blue-500/30'
     }`}>
@@ -56,18 +66,86 @@ const COLUMNS = [
 ];
 
 export default function GlobalUsers() {
+  const { push } = useToast();
+  const [users, setUsers] = useState([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+
+  const applyUsers = (payload) => {
+    setUsers(Array.isArray(payload) ? payload : []);
+  };
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const { data } = await api.get('/admin/users', {
+        params: { limit: 200 },
+        cache: {
+          maxAge: 30000,
+          staleWhileRevalidate: true,
+          revalidateAfter: 12000,
+          persist: true,
+          onUpdate: (response) => applyUsers(response?.data)
+        }
+      });
+      applyUsers(data);
+    } catch (err) {
+      push({
+        type: 'error',
+        title: 'Failed to load users',
+        body: err.response?.data?.msg || err.message || 'Unable to load user registry right now.'
+      });
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUsers();
+  }, []);
+
+  const tableRows = useMemo(() => users.map((user, index) => {
+    const userId = String(user._id || user.id || '');
+    const syntheticId = userId ? `USR-${userId.slice(-6).toUpperCase()}` : `USR-${String(index + 1).padStart(3, '0')}`;
+    const hasRecentSession = Boolean(user.lastLogin);
+
+    return {
+      id: syntheticId,
+      name: user.name || 'Unknown User',
+      role: formatRoleLabel(user.role, user.subRole),
+      email: user.email || '-',
+      status: hasRecentSession ? 'Active' : 'Pending Setup',
+      lastLogin: formatDateLabel(user.lastLogin)
+    };
+  }), [users]);
+
+  const totalUsers = users.length;
+  const activeUsers = users.filter((user) => Boolean(user.lastLogin)).length;
+  const privilegedUsers = users.filter((user) => ['admin', 'chairman', 'director', 'superadmin'].includes(String(user.role || '').toLowerCase())).length;
+  const pendingSetup = users.filter((user) => !user.lastLogin).length;
+
   return (
     <DashboardLayout title="Access Management Center" role="ADMIN">
-      <div className="mb-8">
-        <h2 className="text-3xl font-black text-white tracking-tight">Identity Registry</h2>
-        <p className="text-slate-400 font-medium mt-1">Unified institutional user index and security state</p>
+      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-black text-white tracking-tight">Identity Registry</h2>
+          <p className="mt-1 font-medium text-slate-400">Unified institutional user index and security state</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadUsers()}
+          disabled={loadingUsers}
+          className="btn-secondary px-4 py-2 disabled:opacity-60"
+        >
+          <RefreshCcw size={14} className={loadingUsers ? 'animate-spin' : ''} />
+          {loadingUsers ? 'Refreshing...' : 'Refresh Registry'}
+        </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard title="Total Identities" value="4,245" icon={UsersIcon} color="bg-blue-500" trend="+12 this week" />
-        <StatCard title="Active Sessions" value="2,180" icon={Server} color="bg-emerald-500" />
-        <StatCard title="Privileged Accounts" value="14" icon={Shield} color="bg-amber-500" trend="SysAdmins" />
-        <StatCard title="Suspended / Locked" value="8" icon={Briefcase} color="bg-red-500" />
+        <StatCard title="Total Identities" value={String(totalUsers)} icon={UsersIcon} color="bg-blue-500" trend="Portal users" />
+        <StatCard title="Active Sessions" value={String(activeUsers)} icon={Server} color="bg-emerald-500" />
+        <StatCard title="Privileged Accounts" value={String(privilegedUsers)} icon={Shield} color="bg-amber-500" trend="Admin tier" />
+        <StatCard title="Pending Setup" value={String(pendingSetup)} icon={Briefcase} color="bg-red-500" />
       </div>
 
       <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
@@ -75,7 +153,7 @@ export default function GlobalUsers() {
           title="Global Identity Registry"
           subtitle="Real-time access logs and privilege escalations"
           columns={COLUMNS}
-          data={MOCK_USERS}
+          data={tableRows}
         />
       </motion.div>
     </DashboardLayout>

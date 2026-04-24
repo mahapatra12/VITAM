@@ -5,11 +5,14 @@ import {
   Plus, X, Search, Filter, ChevronRight,
   AlertTriangle, CheckCircle2, QrCode, Clipboard,
   BarChart2, Settings, History, Trash2, Edit3,
-  Download, Printer, Landmark
+  Download, Printer, Landmark, Zap
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/ToastSystem';
+import { useHealth } from '../../context/HealthContext';
+import SystemStatusPanel from '../../components/ui/SystemStatusPanel';
+import Telemetry from '../../utils/telemetry';
 
 const MOCK_ASSETS = [
   { id: 'AS-1001', name: 'Workstation Pro (CSE Lab 1)', category: 'IT Hardware', status: 'Active', value: '₹65,000', purchased: 'Jan 2025', lastInspec: '12 Mar 2026', health: 'Optimal' },
@@ -72,6 +75,7 @@ function AssetModal({ onClose, onAdd }) {
 export default function AssetManagement() {
   const { user } = useAuth();
   const { push } = useToast();
+  const { health } = useHealth();
   const [assets, setAssets] = useState(MOCK_ASSETS);
   const [showForm, setShowForm] = useState(false);
   const [tab, setTab] = useState('inventory'); // inventory | audit | maintenance
@@ -91,21 +95,38 @@ export default function AssetManagement() {
 
   return (
     <DashboardLayout title="Asset Management" role={user?.role || 'ADMIN'}>
-      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+      <div className="mesh-gradient absolute inset-0 -z-10 opacity-20" />
+      
+      <div className="mb-12 flex flex-col xl:flex-row xl:items-center justify-between gap-8">
         <div>
-          <h2 className="text-3xl font-black text-white flex items-center gap-3">
-             <Package size={28} className="text-blue-500" /> institutional lifecycle
+          <motion.p 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className={`text-[11px] font-black uppercase tracking-[0.5em] mb-5 italic ${health.variance > 40 ? 'text-amber-500' : 'text-blue-500'}`}
+          >
+            Institutional Asset Ledger · {health.variance > 40 ? 'Variance Detected' : 'System Optimal'}
+          </motion.p>
+          <h2 className="text-7xl font-black text-white tracking-tighter italic mb-2 uppercase leading-none">
+             Asset <span className="text-blue-600">Governance</span>
           </h2>
-          <p className="text-slate-400 mt-1">Global inventory and asset governance for the VITAM 36-acre campus.</p>
+          <p className="text-slate-400 font-bold mt-4 max-w-2xl italic leading-relaxed text-lg">
+            Institutional inventory and asset governance for the VITAM 36-acre campus. 
+            Real-time variance tracking and strategic oversight active.
+          </p>
         </div>
-        <div className="flex gap-2">
-           {['inventory', 'audit', 'maintenance'].map(t => (
-             <button key={t} onClick={() => setTab(t)}
-               className={`px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${tab === t ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-xl' : 'bg-white/[0.02] border-white/10 text-slate-500 hover:text-white'}`}>
-               {t}
-             </button>
-           ))}
+
+        <div className="flex-shrink-0">
+          <SystemStatusPanel mode="CAMPUS" />
         </div>
+      </div>
+
+      <div className="flex justify-start gap-2 mb-8">
+         {['inventory', 'audit', 'maintenance'].map(t => (
+           <button key={t} onClick={() => setTab(t)}
+             className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all ${tab === t ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-xl' : 'bg-white/[0.02] border-white/10 text-slate-500 hover:text-white'}`}>
+             {t}
+           </button>
+         ))}
       </div>
 
       {/* High-Impact Stat Cards */}
@@ -147,7 +168,7 @@ export default function AssetManagement() {
                         <div key={a.id} className="p-6 rounded-[2.5rem] bg-[#0a0a0a] border border-white/5 flex flex-wrap items-center justify-between gap-6 group hover:border-blue-500/30 transition-all cursor-pointer">
                            <div className="flex items-center gap-5">
                               <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-blue-400 border border-white/10 group-hover:bg-blue-500 group-hover:text-white transition-all">
-                                 {a.category === 'IT Hardware' ? <Cpu size={20}/> : <ArchiveIcon size={20} />}
+                                 {a.category === 'IT Hardware' ? <Cpu size={20}/> : <Package size={20} />}
                               </div>
                               <div>
                                  <h3 className="text-sm font-black text-white uppercase tracking-tight">{a.name}</h3>
@@ -200,47 +221,62 @@ export default function AssetManagement() {
 
         {/* Action Panel */}
         <div className="space-y-6">
-           <div className="p-8 rounded-[3rem] bg-blue-600 shadow-2xl border border-blue-500 relative overflow-hidden group h-64">
-              <div className="absolute top-0 right-0 p-6 opacity-20"><Clipboard size={120} /></div>
-              <div className="relative h-full flex flex-col justify-between">
-                 <div>
-                    <h4 className="text-[10px] font-black text-blue-200 uppercase tracking-widest mb-2">Audit Report</h4>
-                    <p className="text-xl font-black text-white uppercase leading-tight">Total Asset Valuation Overview</p>
-                 </div>
-                 <button className="w-full py-3 bg-white text-blue-600 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center justify-center gap-2">
-                    <Download size={14}/> Download Ledger
-                 </button>
-              </div>
-           </div>
+         {/* Asset Health Vibration Grid */}
+         <div className="space-y-6">
+            <div className="p-8 rounded-[3rem] bg-[#080808] border border-white/5 space-y-6 relative overflow-hidden group">
+               <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-all">
+                  <BarChart2 size={120} className="text-blue-500 rotate-12" />
+               </div>
+                <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-3 italic">
+                   <Cpu size={16} className="text-blue-500" /> Institutional Asset Health
+                </h3>
+                
+                <div className="grid grid-cols-3 gap-3 relative z-10">
+                   {assets.map((a) => (
+                      <div key={a.id} className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl flex flex-col items-center justify-center group/node hover:bg-white/10 transition-all">
+                         <div className={`w-2.5 h-2.5 rounded-full mb-2 ${a.health === 'Optimal' ? 'bg-emerald-500 shadow-[0_0_12px_#10b981]' : 'bg-amber-500 animate-pulse shadow-[0_0_12px_#f59e0b]'}`} />
+                         <span className="text-[9px] font-black text-white uppercase truncate w-full text-center italic">{a.id}</span>
+                      </div>
+                   ))}
+                </div>
+                <p className="text-[10px] text-slate-600 font-black italic uppercase tracking-widest">System variance currently at {health.variance}%.</p>
+            </div>
 
-           <div className="p-8 rounded-[3rem] bg-[#0a0a0a] border border-white/10 space-y-6">
-              <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-4">Departmental Breakdown</h4>
-              <div className="space-y-4">
-                 {[
-                   { d: 'Computer Science', c: '450 Assets', p: '85%', color: 'bg-blue-500' },
-                   { d: 'Mechanical Labs', c: '120 Assets', p: '30%', color: 'bg-orange-500' },
-                   { d: 'Central Library', c: '2,400+ Units', p: '65%', color: 'bg-emerald-500' },
-                 ].map(dep => (
-                    <div key={dep.d} className="space-y-2">
-                       <div className="flex justify-between text-[10px] font-bold">
-                          <span className="text-slate-400 uppercase tracking-tighter">{dep.d}</span>
-                          <span className="text-white">{dep.c}</span>
-                       </div>
-                       <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                          <motion.div initial={{ width: 0 }} animate={{ width: dep.p }} transition={{ duration: 1.5 }} className={`h-full ${dep.color}`} />
-                       </div>
-                    </div>
-                 ))}
-              </div>
-           </div>
+            {/* Autonomous Procurement Status */}
+            <div className="p-10 rounded-[3rem] bg-blue-600 shadow-2xl border border-blue-500 relative overflow-hidden group h-72">
+               <div className="absolute -top-10 -right-10 p-4 opacity-20"><Settings size={180} className="animate-spin-slow" /></div>
+               <div className="relative h-full flex flex-col justify-between">
+                  <div>
+                     <h4 className="text-[11px] font-black text-blue-200 uppercase tracking-[0.4em] mb-2 italic">Institutional Procurement</h4>
+                     <p className="text-2xl font-black text-white uppercase leading-tight italic tracking-tighter">Autonomous Asset <br/> Optimization</p>
+                  </div>
+                  <div className="p-5 bg-black/20 rounded-2xl border border-white/10 backdrop-blur-md">
+                     <p className="text-[10px] text-blue-100 font-black italic uppercase tracking-widest">"Security Controller has flagged 4 nodes for maintenance. Pending Fiscal Validation."</p>
+                  </div>
+               </div>
+            </div>
 
-           <div className="p-8 rounded-[3rem] bg-emerald-500/5 border border-emerald-500/10 flex items-center justify-between">
-              <div>
-                 <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Procurement Req.</p>
-                 <p className="text-lg font-black text-white">4 Pending</p>
-              </div>
-              <button className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-slate-500 hover:text-white"><ChevronRight size={18}/></button>
-           </div>
+            <div className="p-8 rounded-[3rem] bg-[#0a0a0a] border border-white/10 space-y-6">
+               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-4">Departmental Allocation</h4>
+               <div className="space-y-4">
+                  {[
+                    { d: 'Computer Science', c: '450 Assets', p: '85%', color: 'bg-blue-500' },
+                    { d: 'Mechanical Labs', c: '120 Assets', p: '30%', color: 'bg-orange-500' },
+                    { d: 'Central Library', c: '2,400+ Units', p: '65%', color: 'bg-emerald-500' },
+                  ].map(dep => (
+                     <div key={dep.d} className="space-y-2">
+                        <div className="flex justify-between text-[10px] font-bold">
+                           <span className="text-slate-400 uppercase tracking-tighter">{dep.d}</span>
+                           <span className="text-white">{dep.c}</span>
+                        </div>
+                        <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                           <motion.div initial={{ width: 0 }} animate={{ width: dep.p }} transition={{ duration: 1.5 }} className={`h-full ${dep.color}`} />
+                        </div>
+                     </div>
+                  ))}
+               </div>
+            </div>
+         </div>
         </div>
       </div>
 
@@ -249,8 +285,4 @@ export default function AssetManagement() {
       </AnimatePresence>
     </DashboardLayout>
   );
-}
-
-function ArchiveIcon({ size, opacity }) {
-  return <Package size={size} opacity={opacity} />;
 }

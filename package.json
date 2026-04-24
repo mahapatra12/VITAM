@@ -3,18 +3,40 @@
   "version": "1.0.0",
   "description": "Vitam AI Campus Operating System - Monorepo Publish Shell",
   "main": "server/server.js",
+  "engines": {
+    "node": ">=20 <23"
+  },
   "scripts": {
     "start": "node server/server.js",
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "cd client && npm install && npm run build && cd ../server && npm install",
+    "launch": "node scripts/one-click-launch.js",
+    "setup:deps": "npm install --prefix server && npm install --prefix client",
+    "build:client": "npm run build --prefix client",
+    "build:server": "node server/scripts/syntax-check.js",
+    "preflight": "npm run preflight --prefix server",
+    "verify:prod": "npm run build && npm run preflight",
+    "qa:gate": "node scripts/production-gate.js",
+    "qa:e2e": "playwright test --config .system/playwright.config.cjs tests/login-flow.smoke.spec.js tests/dashboard-runtime.smoke.spec.js tests/route-matrix.smoke.spec.js --reporter=line",
+    "qa:routes": "playwright test --config .system/playwright.config.cjs tests/route-matrix.smoke.spec.js --reporter=line",
+    "qa:soak": "playwright test --config .system/playwright.config.cjs tests/login-flow.smoke.spec.js tests/dashboard-runtime.smoke.spec.js --reporter=line --repeat-each=3 --workers=1",
+    "qa:full": "npm run qa:gate && npm run qa:e2e",
+    "qa:release": "npm run qa:full && npm run qa:soak",
+    "qa:zero-defect": "node scripts/zero-defect-gate.js",
+    "build": "npm run build:client && npm run build:server",
     "publish-ready": "npm run build && SET PUBLISH_MODE=true && npm start",
     "seed": "cd server && node -e \"require('./seed')()\""
   },
   "author": "Vitam Tech",
   "license": "MIT",
   "dependencies": {
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "speakeasy": "^2.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "otpauth": "^9.5.0",
+    "playwright": "^1.58.2"
   }
 }

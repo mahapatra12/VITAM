@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const roleMiddleware = require("../middleware/roleMiddleware");
 const { 
+    getPortalSnapshot,
     getDashboard, 
     getProfile, 
     updateProfileImage, 
@@ -12,6 +13,7 @@ const {
 } = require("../controllers/studentController");
 
 // All student routes require STUDENT role
+router.get("/portal", roleMiddleware(["STUDENT"]), getPortalSnapshot);
 router.get("/dashboard", roleMiddleware(["STUDENT"]), getDashboard);
 router.get("/profile", roleMiddleware(["STUDENT"]), getProfile);
 router.put("/profile/image", roleMiddleware(["STUDENT"]), updateProfileImage);

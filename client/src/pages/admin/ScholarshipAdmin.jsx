@@ -1,31 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Award, CheckCircle2, XCircle, Brain, Star, DollarSign,
-  Users, Zap, Search, Eye, BarChart2, X, Send
+  Users, Zap, Search, Eye, BarChart2, X, Send, Radar
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/ToastSystem';
-
-const SCHOLARSHIPS_META = [
-  { id: 'SCH-001', name: 'Merit Excellence Award',       color: '#f59e0b', budget: 500000, icon: Star },
-  { id: 'SCH-002', name: 'Need-Based Financial Aid',     color: '#10b981', budget: 1000000, icon: DollarSign },
-  { id: 'SCH-003', name: 'Sports & Cultural Excellence', color: '#6366f1', budget: 300000, icon: Zap },
-  { id: 'SCH-004', name: "Women in STEM Scholarship",    color: '#ec4899', budget: 700000, icon: Users },
-  { id: 'SCH-005', name: 'Research Innovation Grant',    color: '#8b5cf6', budget: 200000, icon: Brain },
-];
-
-const APPLICANTS = [
-  { id: 'APP-001', name: 'Priya Sharma',   rollNo: 'CS2022048', dept: 'CSE', cgpa: 9.1, attendance: 94, schId: 'SCH-001', status: 'shortlisted', aiScore: 96, appliedOn: '15 Mar 2026', income: null },
-  { id: 'APP-002', name: 'Rahul Kumar',    rollNo: 'CS2022001', dept: 'CSE', cgpa: 8.7, attendance: 91, schId: 'SCH-001', status: 'submitted',   aiScore: 87, appliedOn: '16 Mar 2026', income: null },
-  { id: 'APP-003', name: 'Kiran Reddy',    rollNo: 'ME2022022', dept: 'MECH',cgpa: 6.2, attendance: 72, schId: 'SCH-002', status: 'submitted',   aiScore: 74, appliedOn: '18 Mar 2026', income: 240000 },
-  { id: 'APP-004', name: 'Sneha Iyer',     rollNo: 'EC2022033', dept: 'ECE', cgpa: 7.5, attendance: 88, schId: 'SCH-004', status: 'submitted',   aiScore: 82, appliedOn: '19 Mar 2026', income: null },
-  { id: 'APP-005', name: 'Aditya Singh',   rollNo: 'ME2022015', dept: 'MECH',cgpa: 6.9, attendance: 68, schId: 'SCH-003', status: 'rejected',    aiScore: 45, appliedOn: '14 Mar 2026', income: null },
-  { id: 'APP-006', name: 'Ananya Blore',   rollNo: 'CV2022009', dept: 'CIVIL',cgpa:7.8, attendance: 85, schId: 'SCH-004', status: 'awarded',     aiScore: 89, appliedOn: '12 Mar 2026', income: null },
-  { id: 'APP-007', name: 'Dev Sharma',     rollNo: 'CS2022088', dept: 'CSE', cgpa: 8.1, attendance: 79, schId: 'SCH-005', status: 'shortlisted', aiScore: 78, appliedOn: '20 Mar 2026', income: null },
-  { id: 'APP-008', name: 'Kavya Menon',    rollNo: 'EC2022071', dept: 'ECE', cgpa: 8.9, attendance: 92, schId: 'SCH-001', status: 'awarded',     aiScore: 93, appliedOn: '13 Mar 2026', income: null },
-];
+import api from '../../utils/apiClient';
 
 const STATUS_CFG = {
   submitted:   { label: 'Under Review', color: 'text-amber-400',   bg: 'bg-amber-500/10',    border: 'border-amber-500/20'   },
@@ -34,9 +16,9 @@ const STATUS_CFG = {
   rejected:    { label: 'Rejected',     color: 'text-red-400',     bg: 'bg-red-500/10',      border: 'border-red-500/20'     },
 };
 
-function ReviewModal({ app, onClose, onAction }) {
-  const [remark, setRemark] = useState('');
-  const sch = SCHOLARSHIPS_META.find(s => s.id === app.schId);
+function ReviewModal({ app, onClose, onAction, scholarships }) {
+  const [remark, setRemark] = useState(app.remarks || '');
+  const sch = scholarships.find(s => s.id === app.schId);
   const st = STATUS_CFG[app.status];
 
   return (
@@ -96,17 +78,56 @@ function ReviewModal({ app, onClose, onAction }) {
 export default function ScholarshipAdmin() {
   const { user } = useAuth();
   const { push } = useToast();
-  const [applicants, setApplicants] = useState(APPLICANTS);
+  const [scholarships, setScholarships] = useState([]);
+  const [applicants, setApplicants] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterSch, setFilterSch] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [reviewing, setReviewing] = useState(null);
+  const [stats, setStats] = useState({ total: 0, awarded: 0, pending: 0, shortlisted: 0, totalBudget: 0, budgetUsed: 0 });
 
-  const handleAction = (id, status, remark) => {
-    setApplicants(prev => prev.map(a => a.id === id ? { ...a, status } : a));
-    const app = applicants.find(a => a.id === id);
-    const icon = status === 'awarded' ? '🏆' : status === 'shortlisted' ? '📋' : '❌';
-    push({ type: status === 'awarded' ? 'success' : status === 'shortlisted' ? 'info' : 'warning', title: `${icon} ${STATUS_CFG[status].label}`, body: `${app?.name} — ${STATUS_CFG[status].label}. Student will be notified.` });
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [schRes, appRes, statsRes] = await Promise.all([
+        api.get('/scholarships'),
+        api.get('/scholarships/applications'),
+        api.get('/scholarships/stats')
+      ]);
+      setScholarships(schRes.data);
+      setApplicants(appRes.data);
+      setStats(statsRes.data);
+    } catch (err) {
+      push({ type: 'error', title: 'Data Fetch Failed', body: 'Failed to synchronize with institutional ledger.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAction = async (id, status, remark) => {
+    try {
+      await api.patch('/scholarships/status', { id, status, remarks: remark });
+      setApplicants(prev => prev.map(a => a.id === id ? { ...a, status, remarks: remark } : a));
+      
+      const app = applicants.find(a => a.id === id);
+      const icon = status === 'awarded' ? '🏆' : status === 'shortlisted' ? '📋' : '❌';
+      push({ 
+        type: status === 'awarded' ? 'success' : status === 'shortlisted' ? 'info' : 'warning', 
+        title: `${icon} ${STATUS_CFG[status].label}`, 
+        body: `${app?.name} — ${STATUS_CFG[status].label}. Student will be notified.` 
+      });
+
+      // Refresh stats
+      const statsRes = await api.get('/scholarships/stats');
+      setStats(statsRes.data);
+    } catch (err) {
+      push({ type: 'error', title: 'Action Failed', body: 'Failed to commit institutional override.' });
+    }
   };
 
   const filtered = applicants.filter(a =>
@@ -115,15 +136,8 @@ export default function ScholarshipAdmin() {
     (search === '' || a.name.toLowerCase().includes(search.toLowerCase()) || a.rollNo.includes(search))
   );
 
-  const stats = {
-    total: applicants.length,
-    awarded: applicants.filter(a => a.status === 'awarded').length,
-    pending: applicants.filter(a => a.status === 'submitted').length,
-    shortlisted: applicants.filter(a => a.status === 'shortlisted').length,
-  };
-
-  const budgetUsed = applicants.filter(a => a.status === 'awarded').length * 35000; // avg
-  const totalBudget = SCHOLARSHIPS_META.reduce((s, m) => s + m.budget, 0);
+  const budgetUsed = stats.budgetUsed;
+  const totalBudget = stats.totalBudget;
 
   return (
     <DashboardLayout title="Scholarship Admin" role={user?.role || 'ADMIN'}>
@@ -176,7 +190,7 @@ export default function ScholarshipAdmin() {
         </div>
         <select value={filterSch} onChange={e => setFilterSch(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-2xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none">
           <option value="all" className="bg-slate-900">All Scholarships</option>
-          {SCHOLARSHIPS_META.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>)}
+          {scholarships.map(s => <option key={s.id} value={s.id} className="bg-slate-900">{s.name}</option>)}
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-white/[0.03] border border-white/10 rounded-2xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none">
           <option value="all" className="bg-slate-900">All Status</option>
@@ -185,22 +199,28 @@ export default function ScholarshipAdmin() {
       </div>
 
       {/* Applicant List */}
-      <div className="space-y-3">
+      <div className="space-y-3 relative min-h-[200px]">
+        {loading && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm z-10 rounded-3xl">
+            <Radar className="text-amber-500 animate-spin mb-3" size={40} />
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 italic">Synchronising Vault...</p>
+          </div>
+        )}
         <AnimatePresence>
           {filtered.map((app, i) => {
-            const sch = SCHOLARSHIPS_META.find(s => s.id === app.schId);
+            const sch = scholarships.find(s => s.id === app.schId);
             const st = STATUS_CFG[app.status];
             return (
               <motion.div key={app.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }}
                 className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${app.status === 'awarded' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-[#080808] border-white/5 hover:border-white/10'}`}>
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-white flex-shrink-0"
-                  style={{ background: `${sch?.color}20`, color: sch?.color }}>
+                  style={{ background: `${sch?.color || '#3b82f6'}20`, color: sch?.color || '#3b82f6' }}>
                   {app.name[0]}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-black text-white">{app.name} <span className="text-slate-500 font-normal text-xs">· {app.rollNo} · {app.dept}</span></p>
                   <div className="flex flex-wrap gap-x-4 text-[9px] text-slate-500 mt-0.5">
-                    <span style={{ color: sch?.color }}>{sch?.name}</span>
+                    <span style={{ color: sch?.color || '#3b82f6' }}>{sch?.schName || sch?.name}</span>
                     <span>CGPA {app.cgpa}</span>
                     <span>Att. {app.attendance}%</span>
                     {app.income && <span>Income ₹{(app.income/100000).toFixed(1)}L</span>}
@@ -208,7 +228,7 @@ export default function ScholarshipAdmin() {
                   </div>
                 </div>
                 <div className="hidden sm:flex h-1.5 w-20 bg-white/5 rounded-full overflow-hidden flex-shrink-0">
-                  <div className="h-full rounded-full" style={{ width: `${app.aiScore}%`, background: sch?.color }} />
+                  <div className="h-full rounded-full" style={{ width: `${app.aiScore}%`, background: sch?.color || '#3b82f6' }} />
                 </div>
                 <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest flex-shrink-0 ${st.bg} ${st.border} ${st.color}`}>
                   {st.label}
@@ -226,7 +246,7 @@ export default function ScholarshipAdmin() {
       </div>
 
       <AnimatePresence>
-        {reviewing && <ReviewModal app={reviewing} onClose={() => setReviewing(null)} onAction={handleAction} />}
+        {reviewing && <ReviewModal app={reviewing} onClose={() => setReviewing(null)} onAction={handleAction} scholarships={scholarships} />}
       </AnimatePresence>
     </DashboardLayout>
   );

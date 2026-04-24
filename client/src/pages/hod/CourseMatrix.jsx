@@ -7,7 +7,6 @@ import {
 import { Network, Search, Zap, CheckCircle2, AlertCircle, TrendingDown, Users, FileText, Activity } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
-import AIChat from '../../components/AIChat';
 
 const DEPARTMENT_COMPARISON = [
   { course: 'CS-101', avg: 82, highest: 98, failRate: 4 },
@@ -138,7 +137,6 @@ export default function CourseMatrix() {
         </GlassCard>
       </div>
 
-      <AIChat role="hod" />
     </DashboardLayout>
   );
 }

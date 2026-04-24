@@ -1,319 +1,346 @@
-import { useState, useEffect } from 'react';
-import api from '../../utils/api';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useEffect, useState } from 'react';
 import {
-  User,
-  Mail,
-  Shield,
-  ShieldCheck,
-  Smartphone,
-  Clock,
-  ChevronRight,
-  Camera,
-  MapPin,
   Calendar,
-  Lock,
-  Activity,
-  Zap,
-  Fingerprint,
-  Cpu,
+  Camera,
+  CreditCard,
   Globe,
-  Award,
-  Target,
-  Trophy
+  Mail,
+  Phone,
+  Save,
+  ShieldCheck,
+  UploadCloud,
+  User
 } from 'lucide-react';
-import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
 import DashboardLayout from '../../layouts/DashboardLayout';
+import { GlassCard } from '../../components/ui/DashboardComponents';
+import WorkspaceHero from '../../components/ui/WorkspaceHero';
+import { useAuth } from '../../context/AuthContext';
+import api from '../../utils/api';
+import { safeLocalStorage } from '../../utils/browserStorage';
+import { useToast } from '../../components/ui/ToastSystem';
+import { getMediaUploadErrorMessage, validateProfileImageFile } from '../../utils/mediaUpload';
+import { loadSystemHealth } from '../../utils/systemHealth';
 
-const ManifestText = ({ text }) => {
-  const [displayed, setDisplayed] = useState('');
-  useEffect(() => {
-    let i = 0;
-    const interval = setInterval(() => {
-      setDisplayed(text.slice(0, i));
-      i++;
-      if (i > text.length) clearInterval(interval);
-    }, 50);
-    return () => clearInterval(interval);
-  }, [text]);
+const PROFILE_FIELDS = [
+  { label: 'Display Name', key: 'name', icon: User, placeholder: 'Enter full name' },
+  { label: 'Official Email', key: 'email', icon: Mail, readOnly: true },
+  { label: 'Contact Number', key: 'mobileNo', icon: Phone, placeholder: '+91 00000 00000' },
+  { label: 'Aadhaar Reference', key: 'aadharNo', icon: CreditCard, placeholder: 'XXXX XXXX XXXX' },
+  { label: 'Date of Birth', key: 'dob', icon: Calendar, type: 'date' },
+  { label: 'Department', key: 'branch', icon: Globe, placeholder: 'Department or stream' }
+];
 
-  return (
-    <span className="font-mono text-appleBlue drop-shadow-[0_0_10px_rgba(0,113,227,0.5)]">
-      {displayed}<span className="animate-pulse">_</span>
-    </span>
-  );
+const roleLabel = (user) => {
+  const subRole = String(user?.subRole || '').replace(/_/g, ' ').trim();
+  if (subRole && subRole !== 'none') {
+    return subRole.toUpperCase();
+  }
+  return String(user?.role || 'USER').toUpperCase();
 };
 
-const useAetherParallax = () => {
-  const x = useSpring(0, { stiffness: 100, damping: 30 });
-  const y = useSpring(0, { stiffness: 100, damping: 30 });
-
-  useEffect(() => {
-    const handleMouse = (e) => {
-      const { innerWidth, innerHeight } = window;
-      const xPct = (e.clientX / innerWidth - 0.5) * 20;
-      const yPct = (e.clientY / innerHeight - 0.5) * 20;
-      x.set(xPct);
-      y.set(yPct);
-    };
-    window.addEventListener('mousemove', handleMouse);
-    return () => window.removeEventListener('mousemove', handleMouse);
-  }, [x, y]);
-
-  return { x, y };
-};
-
-const TiltCard = ({ children, className = "" }) => {
-  const [rotate, setRotate] = useState({ x: 0, y: 0 });
-  const onMouseMove = (e) => {
-    const card = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientY - card.top) / card.height - 0.5;
-    const y = (e.clientX - card.left) / card.width - 0.5;
-    setRotate({ x: x * 20, y: y * -20 });
-  };
-  return (
-    <motion.div
-      onMouseMove={onMouseMove}
-      onMouseLeave={() => setRotate({ x: 0, y: 0 })}
-      animate={{ rotateX: rotate.x, rotateY: rotate.y }}
-      transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      className={`relative group perspective-1000 ${className}`}
-      style={{ transformStyle: "preserve-3d" }}
-    >
-      <div style={{ transform: "translateZ(50px)" }}>{children}</div>
-    </motion.div>
-  );
-};
-
-const SovereignSeal = () => (
-  <div className="relative w-32 h-32 md:w-48 md:h-48">
-    <motion.div 
-      animate={{ rotate: 360 }}
-      transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
-      className="absolute inset-0 border-[1px] border-appleBlue/20 rounded-full"
-    />
-    <motion.div 
-      animate={{ rotate: -360 }}
-      transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-      className="absolute inset-4 border-[1px] border-dashed border-appleBlue/30 rounded-full"
-    />
-    <motion.div 
-      animate={{ rotate: 360 }}
-      transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-      className="absolute inset-8 border-2 border-appleBlue/40 rounded-full"
-    />
-    <motion.div 
-      animate={{ rotate: -360 }}
-      transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-      className="absolute inset-12 border-2 border-appleBlue/60 rounded-full flex items-center justify-center bg-appleBlue/5 backdrop-blur-3xl shadow-[0_0_50px_rgba(0,113,227,0.3)]"
-    >
-      <ShieldCheck size={40} className="text-appleBlue drop-shadow-[0_0_10px_#0071e3]" />
-    </motion.div>
-    <div className="absolute inset-0 bg-appleBlue/5 blur-[80px] rounded-full animate-pulse" />
-  </div>
-);
-
-const AetherCursor = () => {
-  const { x, y } = useAetherParallax();
-  const mouseX = useSpring(0, { stiffness: 500, damping: 50 });
-  const mouseY = useSpring(0, { stiffness: 500, damping: 50 });
-
-  useEffect(() => {
-    const handleMouse = (e) => {
-      mouseX.set(e.clientX);
-      mouseY.set(e.clientY);
-    };
-    window.addEventListener('mousemove', handleMouse);
-    return () => window.removeEventListener('mousemove', handleMouse);
-  }, [mouseX, mouseY]);
-
-  return (
-    <motion.div
-      style={{ x: mouseX, y: mouseY, translateX: "-50%", translateY: "-50%" }}
-      className="fixed inset-0 w-[400px] h-[400px] bg-appleBlue/20 blur-[120px] rounded-full pointer-events-none z-50 mix-blend-screen opacity-50"
-    />
-  );
-};
-
-const Profile = () => {
+export default function Profile() {
   const { user, setUser } = useAuth();
-  const navigate = useNavigate();
-  const { x, y } = useAetherParallax();
+  const { push } = useToast();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [mediaUploadReady, setMediaUploadReady] = useState(true);
   const [profileData, setProfileData] = useState({
-    rollNo: '',
-    registrationNo: '',
-    branch: '',
+    name: '',
+    email: '',
     mobileNo: '',
     aadharNo: '',
     dob: '',
-    email: '',
+    branch: '',
     profilePhoto: ''
   });
 
-  const bgX = useTransform(x, [-20, 20], [20, -20]);
-  const bgY = useTransform(y, [-20, 20], [20, -20]);
-  const midX = useTransform(x, [-20, 20], [10, -10]);
-  const midY = useTransform(y, [-20, 20], [10, -10]);
-  const farX = useTransform(x, [-20, 20], [-10, 10]);
-  const farY = useTransform(y, [-20, 20], [-10, 10]);
+  const applyProfilePayload = (profileUser = {}) => {
+    setProfileData({
+      name: profileUser.name || user?.name || '',
+      email: profileUser.email || user?.email || '',
+      mobileNo: profileUser.mobileNo || '',
+      aadharNo: profileUser.aadharNo || '',
+      dob: profileUser.dob ? String(profileUser.dob).split('T')[0] : '',
+      branch: profileUser.branch || profileUser.department || '',
+      profilePhoto: profileUser.profilePhoto || user?.profilePhoto || ''
+    });
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const uid = user?.id || user?._id;
-        if (!uid) return;
         setLoading(true);
-        const { data } = await api.get(`/student/profile/${uid}`);
-        setProfileData(data);
+        const { data } = await api.get('/auth/profile', {
+          cache: {
+            maxAge: 20000,
+            staleWhileRevalidate: true,
+            revalidateAfter: 9000,
+            persist: true,
+            onUpdate: (response) => applyProfilePayload(response?.data?.user || {})
+          }
+        });
+        applyProfilePayload(data?.user || {});
       } catch (err) {
-        console.warn("Institutional Connection Interrupted");
+        setProfileData((current) => ({
+          ...current,
+          name: user?.name || '',
+          email: user?.email || '',
+          profilePhoto: user?.profilePhoto || ''
+        }));
       } finally {
         setLoading(false);
       }
     };
-    fetchProfile();
-  }, [user?.id, user?._id]);
 
-  const handleUpdate = async () => {
-    if (!profileData.profilePhoto) {
-      alert("Institutional Identity Error: Profile Photo is Mandatory.");
+    fetchProfile();
+  }, [user?.email, user?.name, user?.profilePhoto]);
+
+  useEffect(() => {
+    let active = true;
+
+    const checkMediaHealth = async () => {
+      const snapshot = await loadSystemHealth(api);
+      if (!active || !snapshot || typeof snapshot.mediaUploadReady !== 'boolean') {
+        return;
+      }
+      setMediaUploadReady(snapshot.mediaUploadReady);
+    };
+
+    checkMediaHealth();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setProfileData((current) => ({ ...current, [name]: value }));
+  };
+
+  const handlePhotoUpload = async (event) => {
+    if (!mediaUploadReady) {
+      push({
+        type: 'warning',
+        title: 'Media Uplink Offline',
+        body: 'Profile media uploads are temporarily unavailable. You can still update the rest of your profile.'
+      });
       return;
     }
+
+    const file = event.target.files?.[0];
+    const validationError = validateProfileImageFile(file);
+    if (validationError) {
+      push({ type: 'warning', title: 'Upload Blocked', body: validationError });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
     try {
       setSaving(true);
-      const uid = user?.id || user?._id;
-      await api.post('/student/profile/update', { userId: uid, ...profileData });
-      
-      // Update local context
-      const updatedUser = { ...user, profilePhoto: profileData.profilePhoto };
-      localStorage.setItem('vitam_user', JSON.stringify(updatedUser));
-      // Note: setUser is not in AuthContext right now, we might need to add it or just re-login if critical
-      // But for now, the local storage change will persist on refresh.
-      
-      alert("Synchrony Complete: Profile Manifest Updated.");
+      const { data } = await api.post('/upload/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setProfileData((current) => ({ ...current, profilePhoto: data.url }));
+      push({
+        type: 'success',
+        title: 'Photo Uploaded',
+        body: 'Your profile image is ready. Save your profile to commit the change.'
+      });
     } catch (err) {
-      alert("Protocol Failure: Unable to commit changes.");
+      push({
+        type: 'error',
+        title: 'Upload Failed',
+        body: getMediaUploadErrorMessage(err, 'Unable to upload profile media right now.')
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    const formData = new FormData();
-    formData.append('file', file);
-    
+  const handleUpdate = async () => {
     try {
-      const { data } = await api.post('/upload/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      setSaving(true);
+      const payload = {
+        name: profileData.name,
+        mobileNo: profileData.mobileNo,
+        aadharNo: profileData.aadharNo,
+        dob: profileData.dob,
+        branch: profileData.branch,
+        profilePhoto: profileData.profilePhoto
+      };
+
+      const { data } = await api.put('/auth/update-profile', payload);
+      const updatedUser = { ...user, ...(data?.user || payload) };
+      safeLocalStorage.setItem('vitam_user', JSON.stringify(updatedUser));
+      if (typeof setUser === 'function') {
+        setUser(updatedUser);
+      }
+
+      push({
+        type: 'success',
+        title: 'Profile Synchronized',
+        body: 'Your institutional identity record has been updated successfully.'
       });
-      setProfileData(prev => ({ ...prev, profilePhoto: data.url }));
     } catch (err) {
-      alert("Upload Interrupted: Institutional Uplink Error.");
+      push({
+        type: 'error',
+        title: 'Update Failed',
+        body: err.response?.data?.msg || err.message || 'Unable to update the profile right now.'
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <DashboardLayout title="Citadel Profile" role={user?.role?.toUpperCase() || 'STUDENT'}>
-      <div className="relative min-h-screen overflow-hidden pb-32">
-        <AetherCursor />
-        
-        {/* Parallax Background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-           <motion.div style={{ x: bgX, y: bgY }} className="absolute -inset-[10%] bg-[#020202] -z-20" />
-           <motion.div style={{ x: midX, y: midY }} className="liquid-mesh opacity-30" />
-           <motion.div style={{ x, y }} className="absolute top-0 right-0 w-[1000px] h-[1000px] bg-appleBlue/5 blur-[250px] rounded-full opacity-20" />
-        </div>
-
-        <div className="max-w-6xl mx-auto pt-20 px-6 relative z-10">
-           
-           {/* Central Identity Monolith */}
-           <div className="flex flex-col items-center mb-24">
-              <div className="relative group/avatar">
-                 <TiltCard>
-                    <div className="w-56 h-56 rounded-[70px] bg-black border border-white/10 shadow-[0_40px_100px_rgba(0,113,227,0.3)] overflow-hidden relative">
-                       {profileData.profilePhoto ? (
-                          <img src={profileData.profilePhoto} alt="Identity" className="w-full h-full object-cover" />
-                       ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-appleBlue/5">
-                             <User size={80} className="text-appleBlue/20" />
-                          </div>
-                       )}
-                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/avatar:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                          <label className="cursor-pointer p-6 bg-white rounded-3xl text-black hover:scale-110 transition-transform">
-                             <Camera size={24} />
-                             <input type="file" className="hidden" onChange={handlePhotoUpload} />
-                          </label>
-                       </div>
-                    </div>
-                 </TiltCard>
-                 {!profileData.profilePhoto && (
-                    <motion.div 
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="absolute -top-4 -right-4 px-4 py-1.5 bg-red-500 text-[9px] font-black text-white uppercase tracking-widest rounded-full shadow-lg"
-                    >
-                       Photo Mandatory
-                    </motion.div>
-                 )}
+    <DashboardLayout title="Institutional Profile" role={user?.role?.toUpperCase() || 'STUDENT'}>
+      <WorkspaceHero
+        eyebrow="Profile workspace"
+        title={profileData.name || user?.name || 'Institutional Identity'}
+        description="Keep your verified identity, communication details, and core profile records current from one calmer workspace designed for everyday updates."
+        icon={ShieldCheck}
+        badges={[
+          roleLabel(user),
+          mediaUploadReady ? 'Media uplink ready' : 'Media uplink limited',
+          loading ? 'Refreshing records' : 'Identity verified'
+        ]}
+        actions={[
+          {
+            label: saving ? 'Saving...' : 'Save Profile',
+            icon: Save,
+            tone: 'primary',
+            disabled: saving,
+            onClick: handleUpdate
+          }
+        ]}
+        stats={[
+          { label: 'Official email', value: profileData.email || 'Not linked' },
+          { label: 'Role', value: roleLabel(user) },
+          { label: 'Department', value: profileData.branch || 'Not assigned' },
+          { label: 'Profile state', value: profileData.profilePhoto ? 'Complete' : 'Needs photo' }
+        ]}
+        aside={(
+          <div className="glass-panel h-full p-6 md:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                  Identity Portrait
+                </p>
+                <h3 className="mt-2 text-2xl font-black text-white">
+                  Verified profile media
+                </h3>
               </div>
-              <h1 className="text-6xl font-black text-white tracking-tighter mt-12 uppercase italic leading-none">
-                 {user?.name || 'Scholar'}
-              </h1>
-              <p className="text-[10px] font-black tracking-[0.6em] text-white/30 uppercase mt-4 italic">Sovereign Identity Key</p>
-           </div>
+              <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-blue-200">
+                <Camera size={18} />
+              </div>
+            </div>
 
-           {/* Pure Data Grid */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="mt-6 flex flex-col items-center gap-5">
+              <div className="relative h-40 w-40 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/80 shadow-2xl">
+                {profileData.profilePhoto ? (
+                  <img src={profileData.profilePhoto} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-slate-500">
+                    <User size={56} />
+                  </div>
+                )}
+              </div>
+
+              <label className={`btn-secondary ${mediaUploadReady ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+                <UploadCloud size={14} />
+                Upload Photo
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/jpeg,image/png"
+                  onChange={handlePhotoUpload}
+                  disabled={!mediaUploadReady}
+                />
+              </label>
+
+              <p className="text-center text-xs leading-6 text-slate-300">
+                {mediaUploadReady
+                  ? 'Use a clear formal photo so your profile looks consistent across dashboards and identity checks.'
+                  : 'Media uploads are paused right now, but your written profile details can still be updated safely.'}
+              </p>
+            </div>
+          </div>
+        )}
+      />
+
+      <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <GlassCard title="Identity Ledger" subtitle="Verified institutional details">
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {PROFILE_FIELDS.map((field) => {
+              const Icon = field.icon;
+              return (
+                <div key={field.key} className="surface-card p-4">
+                  <div className="mb-3 flex items-center gap-3">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-blue-200">
+                      <Icon size={16} />
+                    </div>
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                      {field.label}
+                    </span>
+                  </div>
+                  <input
+                    type={field.type || 'text'}
+                    name={field.key}
+                    value={profileData[field.key] || ''}
+                    onChange={handleChange}
+                    readOnly={field.readOnly}
+                    placeholder={field.placeholder}
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none transition-all ${
+                      field.readOnly
+                        ? 'cursor-not-allowed border-white/5 bg-white/[0.03] text-slate-400'
+                        : 'border-white/10 bg-slate-950/70 text-white focus:border-blue-500/40'
+                    }`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </GlassCard>
+
+        <div className="space-y-8">
+          <GlassCard title="Profile Guidance" subtitle="Keep your identity record strong">
+            <div className="mt-4 space-y-4">
               {[
-                { label: 'Roll No', key: 'rollNo', icon: Shield },
-                { label: 'Registration No', key: 'registrationNo', icon: Fingerprint },
-                { label: 'Branch', key: 'branch', icon: Globe },
-                { label: 'Mobile No', key: 'mobileNo', icon: Smartphone },
-                { label: 'Aadhar No', key: 'aadharNo', icon: Cpu },
-                { label: 'DOB', key: 'dob', icon: Calendar, type: 'date' },
-                { label: 'Registered Email ID', key: 'email', icon: Mail, readOnly: true },
-              ].map((field, i) => (
-                <TiltCard key={i}>
-                   <div className="p-10 bg-black/40 border border-white/5 rounded-[50px] backdrop-blur-3xl group/field hover:border-appleBlue/30 transition-all flex flex-col justify-between h-40">
-                      <div className="flex justify-between items-center mb-4">
-                         <span className="text-[10px] font-black text-white/20 uppercase tracking-[0.5em] group-hover/field:text-appleBlue transition-colors">{field.label}</span>
-                         <field.icon size={16} className="text-white/10 group-hover/field:text-appleBlue/40" />
-                      </div>
-                      <input 
-                        type={field.type || 'text'}
-                        value={field.key === 'dob' && profileData[field.key] ? profileData[field.key].split('T')[0] : profileData[field.key]}
-                        onChange={(e) => !field.readOnly && setProfileData(prev => ({ ...prev, [field.key]: e.target.value }))}
-                        readOnly={field.readOnly}
-                        className={`bg-transparent text-2xl font-black text-white outline-none w-full ${field.readOnly ? 'opacity-40 cursor-not-allowed' : 'focus:text-appleBlue'}`}
-                        placeholder={`Pending ${field.label}...`}
-                      />
-                   </div>
-                </TiltCard>
+                'Use your official phone number so alerts and verification codes arrive without delay.',
+                'Keep your department and personal details current for cleaner dashboard recommendations.',
+                'A clear profile photo improves trust and consistency across secure workflows.'
+              ].map((tip) => (
+                <div key={tip} className="surface-card p-4">
+                  <p className="text-sm leading-6 text-slate-200">
+                    {tip}
+                  </p>
+                </div>
               ))}
-           </div>
+            </div>
+          </GlassCard>
 
-           <div className="mt-24 flex justify-center pb-20">
-              <motion.button 
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleUpdate}
-                disabled={saving}
-                className="px-16 py-10 bg-white text-black rounded-full font-black uppercase tracking-[0.8em] text-xs shadow-[0_30px_80px_rgba(255,255,255,0.15)] flex items-center gap-6 group hover:bg-appleBlue hover:text-white transition-all disabled:opacity-50"
-              >
-                 {saving ? 'SYNCHRONIZING...' : 'Commit Synchrony'}
-                 <Zap size={20} className="group-hover:animate-bounce" />
-              </motion.button>
-           </div>
+          <GlassCard title="Profile Status" subtitle="Current readiness snapshot">
+            <div className="mt-4 grid gap-3">
+              {[
+                { label: 'Photo readiness', value: profileData.profilePhoto ? 'Uploaded' : 'Pending' },
+                { label: 'Media service', value: mediaUploadReady ? 'Available' : 'Limited' },
+                { label: 'Save state', value: saving ? 'Synchronizing' : 'Ready' }
+              ].map((item) => (
+                <div key={item.label} className="surface-card flex items-center justify-between p-4">
+                  <span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                    {item.label}
+                  </span>
+                  <span className="text-sm font-black text-white">
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
         </div>
       </div>
     </DashboardLayout>
   );
-};
-
-export default Profile;
+}

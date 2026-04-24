@@ -1,338 +1,551 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  CreditCard, Receipt, Clock, Wallet, Download, CheckCircle2,
-  AlertTriangle, ChevronRight, Shield, Zap, QrCode, X, TrendingDown,
-  IndianRupee, Calendar, Lock, RefreshCw
+  AlertTriangle,
+  Calendar,
+  CheckCircle2,
+  Clock3,
+  CreditCard,
+  Download,
+  Lock,
+  QrCode,
+  Receipt,
+  RefreshCw,
+  Shield,
+  Wallet,
+  Zap
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { GlassCard } from '../../components/ui/DashboardComponents';
+import { GlassCard, StatCard } from '../../components/ui/DashboardComponents';
+import WorkspaceHero from '../../components/ui/WorkspaceHero';
 import { useToast } from '../../components/ui/ToastSystem';
+import api from '../../utils/api';
+import {
+  DEFAULT_FINANCE,
+  DEFAULT_PORTAL_DATA,
+  buildFinanceLedger,
+  normalizePortalData
+} from '../../utils/studentPortalData';
 
-const FEE_BREAKDOWN = [
-  { label: 'Tuition Fee',    amount: 45000, color: '#6366f1', paid: true  },
-  { label: 'Hostel Fee',     amount: 18000, color: '#8b5cf6', paid: true  },
-  { label: 'Bus Transport',  amount: 12000, color: '#3b82f6', paid: true  },
-  { label: 'Mess Bill',      amount:  4200, color: '#f59e0b', paid: false },
-  { label: 'Library Fine',   amount:   150, color: '#ef4444', paid: true  },
-  { label: 'Exam Fees',      amount:  2500, color: '#10b981', paid: false },
-];
-
-const TRANSACTIONS = [
-  { id: 'TXN-001', date: '12 Mar 2026', desc: 'Semester 6 Tuition Fee', amount: 45000, status: 'Paid',    receipt: 'REC-001' },
-  { id: 'TXN-002', date: '01 Mar 2026', desc: 'Hostel Mess Bill — March', amount: 4200, status: 'Due',    receipt: null,      dueDate: '2026-03-31' },
-  { id: 'TXN-003', date: '15 Aug 2025', desc: 'Semester 5 Tuition Fee',  amount: 45000, status: 'Paid',   receipt: 'REC-002' },
-  { id: 'TXN-004', date: '10 Aug 2025', desc: 'Bus Transport (Annual)',   amount: 12000, status: 'Paid',   receipt: 'REC-003' },
-  { id: 'TXN-005', date: '12 Jun 2026', desc: 'Exam Registration Fees',  amount:  2500, status: 'Due',    receipt: null,      dueDate: '2026-04-20' },
-  { id: 'TXN-006', date: '20 Jan 2025', desc: 'Library Fine — Late Return', amount: 150, status: 'Paid',  receipt: 'REC-004' },
+const PAYMENT_METHODS = [
+  { id: 'upi', label: 'UPI' },
+  { id: 'card', label: 'Card' },
+  { id: 'bank', label: 'Net Banking' }
 ];
 
 const UPI_APPS = ['GPay', 'PhonePe', 'Paytm', 'BHIM'];
 
-function PaymentModal({ item, onClose }) {
+function DaysCountdown({ dueDate }) {
+  const days = Math.ceil((new Date(dueDate) - new Date()) / 86400000);
+
+  return (
+    <span className={`rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] ${
+      days <= 7 ? 'border-rose-500/20 bg-rose-500/10 text-rose-300' : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+    }`}>
+      {days > 0 ? `${days}d left` : 'Overdue'}
+    </span>
+  );
+}
+
+function PaymentModal({ item, onClose, onSuccess }) {
   const { push } = useToast();
-  const [step, setStep] = useState(1); // 1=method, 2=processing, 3=done
+  const [step, setStep] = useState('form');
   const [method, setMethod] = useState('upi');
   const [upiId, setUpiId] = useState('');
-  const [card, setCard] = useState({ number: '', expiry: '', cvv: '', name: '' });
+  const [card, setCard] = useState({ number: '', name: '', expiry: '', cvv: '' });
 
   const handlePay = async () => {
-    setStep(2);
-    await new Promise(r => setTimeout(r, 2200));
-    setStep(3);
-    push({ type: 'success', title: 'Payment Successful!', body: `₹${item.amount.toLocaleString()} for "${item.desc}" confirmed. Receipt sent.` });
-    setTimeout(onClose, 1800);
+    setStep('processing');
+    await new Promise((resolve) => setTimeout(resolve, 1800));
+    setStep('success');
+    onSuccess?.(item);
+    push({
+      type: 'success',
+      title: 'Payment successful',
+      body: `Rs ${item.amount.toLocaleString()} for "${item.desc}" has been confirmed.`
+    });
+    setTimeout(onClose, 1500);
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-[rgba(3,8,20,0.78)] p-4 backdrop-blur-2xl"
       onClick={onClose}
     >
       <motion.div
-        initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-        onClick={e => e.stopPropagation()}
-        className="w-full max-w-md bg-[#0a0a0a] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+        initial={{ opacity: 0, scale: 0.96, y: 18 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.98, y: 10 }}
+        onClick={(event) => event.stopPropagation()}
+        className="premium-card w-full max-w-lg overflow-hidden p-0"
       >
-        {/* Modal Header */}
-        <div className="p-6 border-b border-white/5 flex items-center justify-between">
-          <div>
-            <h3 className="font-black text-white text-lg">Secure Payment</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5 truncate max-w-[260px]">{item.desc}</p>
+        <div className="border-b border-white/6 px-6 py-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                Secure payment
+              </p>
+              <h3 className="mt-2 text-2xl font-black text-white">
+                {item.desc}
+              </h3>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-300 transition-all hover:text-white"
+            >
+              Close
+            </button>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all">
-            <X size={16} />
-          </button>
         </div>
 
-        {/* Amount */}
-        <div className="px-6 py-5 bg-indigo-500/5 border-b border-white/5 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-            <IndianRupee size={22} className="text-indigo-400" />
-          </div>
-          <div>
-            <p className="text-3xl font-black text-white">₹{item.amount.toLocaleString()}</p>
-            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mt-0.5">Amount Due</p>
-          </div>
-          <div className="ml-auto flex items-center gap-1.5 text-[10px] text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-            <Shield size={10} /> SSL Secured
+        <div className="px-6 py-5">
+          <div className="rounded-[1.8rem] border border-violet-500/20 bg-violet-500/10 p-5">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-violet-200">
+              Amount payable
+            </p>
+            <p className="mt-3 text-4xl font-black text-white">
+              Rs {item.amount.toLocaleString()}
+            </p>
+            <p className="mt-2 flex items-center gap-2 text-sm text-violet-100/85">
+              <Shield size={14} />
+              Encrypted payment flow
+            </p>
           </div>
         </div>
 
         <AnimatePresence mode="wait">
-          {step === 1 && (
-            <motion.div key="step1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-6 space-y-5">
-              {/* Payment Method Tabs */}
-              <div className="flex gap-2">
-                {[['upi','UPI/QR'],['card','Card'],['netbank','Net Banking']].map(([id, label]) => (
-                  <button key={id} onClick={() => setMethod(id)}
-                    className={`flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${method === id ? 'bg-indigo-500 text-white' : 'bg-white/5 text-slate-400 border border-white/10 hover:bg-white/10'}`}>
-                    {label}
+          {step === 'form' ? (
+            <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-6 pb-6">
+              <div className="mb-5 flex gap-2">
+                {PAYMENT_METHODS.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    onClick={() => setMethod(entry.id)}
+                    className={method === entry.id ? 'btn-primary flex-1 justify-center' : 'btn-secondary flex-1 justify-center'}
+                  >
+                    {entry.label}
                   </button>
                 ))}
               </div>
 
-              {method === 'upi' && (
+              {method === 'upi' ? (
                 <div className="space-y-4">
-                  <div className="flex gap-2 flex-wrap">
-                    {UPI_APPS.map(app => (
-                      <button key={app} onClick={() => setUpiId(`${app.toLowerCase()}@upi`)}
-                        className={`px-3 py-2 rounded-xl text-[10px] font-black border transition-all ${upiId.startsWith(app.toLowerCase()) ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'}`}>
+                  <div className="flex flex-wrap gap-2">
+                    {UPI_APPS.map((app) => (
+                      <button
+                        key={app}
+                        type="button"
+                        onClick={() => setUpiId(`${app.toLowerCase()}@upi`)}
+                        className={upiId.startsWith(app.toLowerCase()) ? 'btn-primary' : 'btn-secondary'}
+                      >
                         {app}
                       </button>
                     ))}
                   </div>
-                  <input value={upiId} onChange={e => setUpiId(e.target.value)}
-                    placeholder="Enter UPI ID (e.g. name@upi)"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors placeholder:text-slate-600" />
-                  <div className="flex items-center justify-center p-4 bg-white rounded-2xl">
-                    <div className="w-24 h-24 bg-slate-200 flex items-center justify-center rounded-xl">
-                      <QrCode size={64} className="text-slate-800" />
+                  <input
+                    value={upiId}
+                    onChange={(event) => setUpiId(event.target.value)}
+                    placeholder="Enter UPI ID"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-violet-400/40 focus:outline-none"
+                  />
+                  <div className="surface-card flex flex-col items-center p-6">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-white text-slate-900">
+                      <QrCode size={56} />
                     </div>
+                    <p className="mt-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                      Scan with any UPI app
+                    </p>
                   </div>
-                  <p className="text-center text-[10px] text-slate-500">Scan with any UPI app to pay instantly</p>
                 </div>
-              )}
+              ) : null}
 
-              {method === 'card' && (
-                <div className="space-y-3">
-                  {[
-                    { key: 'number', placeholder: '1234 5678 9012 3456', label: 'Card Number', type: 'text', maxLen: 19 },
-                    { key: 'name',   placeholder: 'Cardholder Name',     label: 'Name',           type: 'text', maxLen: 40 },
-                  ].map(f => (
-                    <div key={f.key}>
-                      <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">{f.label}</label>
-                      <input type={f.type} maxLength={f.maxLen} value={card[f.key]}
-                        onChange={e => setCard(p => ({ ...p, [f.key]: e.target.value }))}
-                        placeholder={f.placeholder}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors placeholder:text-slate-600" />
-                    </div>
-                  ))}
+              {method === 'card' ? (
+                <div className="space-y-4">
+                  <input
+                    value={card.number}
+                    onChange={(event) => setCard((previous) => ({ ...previous, number: event.target.value }))}
+                    placeholder="Card number"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-violet-400/40 focus:outline-none"
+                  />
+                  <input
+                    value={card.name}
+                    onChange={(event) => setCard((previous) => ({ ...previous, name: event.target.value }))}
+                    placeholder="Cardholder name"
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-violet-400/40 focus:outline-none"
+                  />
                   <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { key: 'expiry', placeholder: 'MM / YY', label: 'Expiry' },
-                      { key: 'cvv',    placeholder: '•••',       label: 'CVV' },
-                    ].map(f => (
-                      <div key={f.key}>
-                        <label className="block text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1.5">{f.label}</label>
-                        <input type={f.key === 'cvv' ? 'password' : 'text'} maxLength={f.key === 'cvv' ? 3 : 7} value={card[f.key]}
-                          onChange={e => setCard(p => ({ ...p, [f.key]: e.target.value }))}
-                          placeholder={f.placeholder}
-                          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors placeholder:text-slate-600" />
-                      </div>
-                    ))}
+                    <input
+                      value={card.expiry}
+                      onChange={(event) => setCard((previous) => ({ ...previous, expiry: event.target.value }))}
+                      placeholder="MM / YY"
+                      className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-violet-400/40 focus:outline-none"
+                    />
+                    <input
+                      value={card.cvv}
+                      onChange={(event) => setCard((previous) => ({ ...previous, cvv: event.target.value }))}
+                      placeholder="CVV"
+                      className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-violet-400/40 focus:outline-none"
+                    />
                   </div>
                 </div>
-              )}
+              ) : null}
 
-              {method === 'netbank' && (
-                <div className="space-y-2">
-                  {['State Bank of India','HDFC Bank','ICICI Bank','Axis Bank','Kotak Mahindra'].map(bank => (
-                    <button key={bank} onClick={() => setUpiId(bank)}
-                      className={`w-full flex items-center justify-between p-3 rounded-xl border text-left transition-all ${upiId === bank ? 'bg-indigo-500/10 border-indigo-500/30 text-white' : 'bg-white/[0.02] border-white/10 text-slate-400 hover:bg-white/5 hover:text-white'}`}>
-                      <span className="text-sm font-bold">{bank}</span>
-                      <ChevronRight size={14} className={upiId === bank ? 'text-indigo-400' : ''} />
+              {method === 'bank' ? (
+                <div className="space-y-3">
+                  {['State Bank of India', 'HDFC Bank', 'ICICI Bank', 'Axis Bank', 'Kotak Mahindra'].map((bank) => (
+                    <button key={bank} type="button" className="surface-card flex w-full items-center justify-between p-4 text-left">
+                      <span className="text-sm font-black text-white">
+                        {bank}
+                      </span>
+                      <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
+                        Select
+                      </span>
                     </button>
                   ))}
                 </div>
-              )}
+              ) : null}
 
-              <button onClick={handlePay}
-                className="w-full py-4 bg-indigo-500 hover:bg-indigo-400 text-white font-black text-sm uppercase tracking-widest rounded-2xl transition-all shadow-[0_0_20px_rgba(99,102,241,0.4)] flex items-center justify-center gap-2">
-                <Lock size={16} /> Pay ₹{item.amount.toLocaleString()} Securely
+              <button type="button" onClick={handlePay} className="btn-primary mt-5 w-full justify-center">
+                <Lock size={14} />
+                Pay securely
               </button>
-              <p className="text-center text-[9px] text-slate-600">256-bit AES encrypted · PCI DSS Compliant · NPCI Licensed</p>
             </motion.div>
-          )}
+          ) : null}
 
-          {step === 2 && (
-            <motion.div key="step2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="p-12 text-center">
-              <RefreshCw size={40} className="mx-auto text-indigo-400 animate-spin mb-4" />
-              <p className="text-white font-black text-lg">Processing Payment</p>
-              <p className="text-slate-500 text-sm mt-1">Connecting to payment gateway...</p>
+          {step === 'processing' ? (
+            <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="px-6 pb-10 pt-2 text-center">
+              <RefreshCw size={36} className="mx-auto animate-spin text-violet-300" />
+              <p className="mt-5 text-xl font-black text-white">
+                Processing payment
+              </p>
+              <p className="mt-2 text-sm text-slate-400">
+                Connecting to the payment gateway...
+              </p>
             </motion.div>
-          )}
+          ) : null}
 
-          {step === 3 && (
-            <motion.div key="step3" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="p-12 text-center">
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 400 }}>
-                <CheckCircle2 size={56} className="mx-auto text-emerald-400 mb-4" />
-              </motion.div>
-              <p className="text-white font-black text-xl">Payment Successful!</p>
-              <p className="text-slate-400 text-sm mt-1">Receipt generated and emailed.</p>
+          {step === 'success' ? (
+            <motion.div key="success" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="px-6 pb-10 pt-2 text-center">
+              <CheckCircle2 size={54} className="mx-auto text-emerald-300" />
+              <p className="mt-5 text-2xl font-black text-white">
+                Payment successful
+              </p>
+              <p className="mt-2 text-sm text-slate-400">
+                Your receipt is now reflected in the transaction ledger.
+              </p>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
       </motion.div>
     </motion.div>
   );
 }
 
-function DaysCountdown({ dueDate }) {
-  const days = Math.ceil((new Date(dueDate) - new Date()) / 86400000);
-  return (
-    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${days <= 7 ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-amber-400 bg-amber-500/10 border-amber-500/20'}`}>
-      {days > 0 ? `${days}d left` : 'Overdue'}
-    </span>
-  );
-}
-
 export default function StudentFees() {
-  const [payingItem, setPayingItem] = useState(null);
   const { push } = useToast();
+  const [portalData, setPortalData] = useState(DEFAULT_PORTAL_DATA);
+  const [loading, setLoading] = useState(true);
+  const [payingItem, setPayingItem] = useState(null);
+  const [paymentOverrides, setPaymentOverrides] = useState({});
 
-  const totalPaid = FEE_BREAKDOWN.filter(f => f.paid).reduce((s, f) => s + f.amount, 0);
-  const totalDue = FEE_BREAKDOWN.filter(f => !f.paid).reduce((s, f) => s + f.amount, 0);
-  const totalAll = FEE_BREAKDOWN.reduce((s, f) => s + f.amount, 0);
-  const paidPct = Math.round((totalPaid / totalAll) * 100);
+  useEffect(() => {
+    const loadPortalData = async () => {
+      try {
+        const { data } = await api.get('/student/portal', {
+          cache: {
+            maxAge: 30000,
+            staleWhileRevalidate: true,
+            revalidateAfter: 12000,
+            persist: true,
+            onUpdate: (response) => setPortalData(normalizePortalData(response?.data))
+          }
+        });
+        setPortalData(normalizePortalData(data));
+      } catch {
+        setPortalData(DEFAULT_PORTAL_DATA);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPortalData();
+  }, []);
+
+  const finance = portalData.finance || DEFAULT_FINANCE;
+  const baseTransactions = useMemo(() => buildFinanceLedger(finance), [finance]);
+
+  const transactions = useMemo(
+    () => baseTransactions.map((item) => (
+      paymentOverrides[item.id]
+        ? {
+            ...item,
+            status: 'Paid',
+            receipt: paymentOverrides[item.id],
+            dueDate: null
+          }
+        : item
+    )),
+    [baseTransactions, paymentOverrides]
+  );
+
+  const breakdown = useMemo(
+    () => finance.breakdown.map((item, index) => ({
+      ...item,
+      paid: transactions[index]?.status === 'Paid'
+    })),
+    [finance.breakdown, transactions]
+  );
+
+  const totalAll = useMemo(
+    () => breakdown.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [breakdown]
+  );
+  const totalPaid = useMemo(
+    () => transactions.filter((item) => item.status === 'Paid').reduce((sum, item) => sum + item.amount, 0),
+    [transactions]
+  );
+  const totalDue = Math.max(0, totalAll - totalPaid);
+  const paidPct = totalAll ? Math.round((totalPaid / totalAll) * 100) : 0;
+  const dueItems = transactions.filter((item) => item.status === 'Due');
+  const receiptCount = transactions.filter((item) => item.receipt).length;
+
+  const handlePaymentSuccess = (item) => {
+    setPaymentOverrides((previous) => ({
+      ...previous,
+      [item.id]: `REC-${Date.now().toString().slice(-6)}`
+    }));
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Fee Treasury" role="STUDENT">
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-8">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-violet-500/30 border-t-violet-500 shadow-2xl shadow-violet-500/20" />
+          <p className="animate-pulse text-[11px] font-black uppercase tracking-[0.6em] text-slate-500">
+            Fee ledger synchronization
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Fee Treasury" role="STUDENT">
-      <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-white flex items-center gap-3">
-            <Wallet size={28} className="text-indigo-500" /> Fee Treasury
-          </h2>
-          <p className="text-slate-400 mt-1">Institutional payment history, secure checkout, and digital receipts.</p>
-        </div>
-        <button onClick={() => push({ type: 'info', title: 'Statement Generated', body: 'Annual fee statement exported as PDF.' })}
-          className="flex items-center gap-2 px-5 py-2.5 bg-white/5 border border-white/10 text-slate-300 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-colors">
-          <Download size={14} /> Download Statement
-        </button>
+      <WorkspaceHero
+        eyebrow="Fees workspace"
+        title="Payments, dues, and receipt ledger"
+        description="Track what is cleared, what is due, and what still needs action from a cleaner fee management experience designed for faster decisions and safer payments."
+        icon={Wallet}
+        badges={[
+          `${paidPct}% cleared`,
+          `${dueItems.length} due items`,
+          'Receipt archive ready'
+        ]}
+        actions={[
+          {
+            label: 'Download statement',
+            icon: Download,
+            tone: 'secondary',
+            onClick: () => push({ type: 'info', title: 'Statement ready', body: 'Your annual fee statement export flow is ready from this screen.' })
+          },
+          {
+            label: 'Pay dues',
+            icon: Zap,
+            tone: 'primary',
+            onClick: () => setPayingItem(dueItems[0] || null)
+          }
+        ]}
+        stats={[
+          { label: 'Paid amount', value: `Rs ${totalPaid.toLocaleString()}` },
+          { label: 'Due amount', value: `Rs ${totalDue.toLocaleString()}` },
+          { label: 'Total ledger', value: `Rs ${totalAll.toLocaleString()}` },
+          { label: 'Transactions', value: String(transactions.length) }
+        ]}
+        aside={(
+          <div className="glass-panel h-full p-6 md:p-7">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+              Payment health
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-white">
+              {totalDue ? 'The ledger is mostly clear' : 'Your active cycle is fully clear'}
+            </h3>
+            <div className="mt-6 space-y-3">
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                  Next action
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-200">
+                  {dueItems.length
+                    ? `${dueItems.length} payment item${dueItems.length > 1 ? 's are' : ' is'} still awaiting confirmation in the current cycle.`
+                    : 'No pending payment items are currently blocking your academic operations.'}
+                </p>
+              </div>
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                  Security
+                </p>
+                <p className="mt-2 text-sm leading-6 text-emerald-300">
+                  Payment confirmation and receipt delivery are both ready to connect to your production payment provider flow.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      />
+
+      <div className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
+        <StatCard title="Paid" value={`Rs ${totalPaid.toLocaleString()}`} icon={CheckCircle2} color="bg-emerald-500" trend="Cleared" />
+        <StatCard title="Due" value={`Rs ${totalDue.toLocaleString()}`} icon={AlertTriangle} color="bg-amber-500" trend={totalDue ? 'Action needed' : 'Clear'} />
+        <StatCard title="Total" value={`Rs ${totalAll.toLocaleString()}`} icon={Wallet} color="bg-blue-500" trend="Ledger" />
+        <StatCard title="Receipts" value={String(receiptCount)} icon={Receipt} color="bg-violet-500" trend="Stored" />
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        {/* Progress card */}
-        <div className="lg:col-span-2 p-6 rounded-3xl bg-[#080808] border border-white/5">
-          <div className="flex justify-between items-start mb-5">
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">Total Fee Cleared</p>
-              <p className="text-4xl font-black text-white mt-1">₹{totalPaid.toLocaleString()}</p>
-              <p className="text-sm text-slate-500 mt-0.5">of ₹{totalAll.toLocaleString()} · AY 2025–26</p>
-            </div>
-            <div className="text-right">
-              {totalDue > 0 && (
-                <div className="px-3 py-1.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs font-black text-amber-400 flex items-center gap-2">
-                  <AlertTriangle size={12} /> ₹{totalDue.toLocaleString()} Due
+      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <GlassCard title="Ledger progress" subtitle={`${portalData.profile.semesterLabel} | ${portalData.profile.program}`} icon={Wallet}>
+          <div className="rounded-[1.8rem] border border-white/8 bg-slate-950/45 p-5">
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
+                  Total cleared
+                </p>
+                <p className="mt-2 text-4xl font-black text-white">
+                  Rs {totalPaid.toLocaleString()}
+                </p>
+                <p className="mt-2 text-sm text-slate-400">
+                  of Rs {totalAll.toLocaleString()}
+                </p>
+              </div>
+              {totalDue ? (
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-amber-300">
+                    Due now
+                  </p>
+                  <p className="mt-2 text-xl font-black text-white">
+                    Rs {totalDue.toLocaleString()}
+                  </p>
                 </div>
-              )}
+              ) : null}
             </div>
-          </div>
-          <div className="h-3 bg-white/5 rounded-full overflow-hidden mb-2">
-            <motion.div initial={{ width: 0 }} animate={{ width: `${paidPct}%` }}
-              transition={{ duration: 1.2, ease: 'easeOut' }}
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-          </div>
-          <p className="text-[10px] text-slate-500 font-bold">{paidPct}% cleared</p>
-        </div>
 
-        {/* Pie breakdown visual */}
-        <GlassCard>
-          <div className="p-4 border-b border-white/5">
-            <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Breakdown</h3>
+            <div className="h-3 overflow-hidden rounded-full border border-white/6 bg-slate-900">
+              <div className="h-full rounded-full bg-gradient-to-r from-blue-400 via-violet-500 to-emerald-400" style={{ width: `${paidPct}%` }} />
+            </div>
+            <p className="mt-3 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+              {paidPct}% cleared
+            </p>
           </div>
-          <div className="p-4 space-y-2">
-            {FEE_BREAKDOWN.map(fee => (
-              <div key={fee.label} className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: fee.color }} />
-                <span className="text-[11px] text-slate-400 flex-1 truncate">{fee.label}</span>
-                <span className={`text-[9px] font-black ${fee.paid ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {fee.paid ? '✓' : '!'} ₹{(fee.amount / 1000).toFixed(1)}k
-                </span>
+        </GlassCard>
+
+        <GlassCard title="Breakdown" subtitle="Fee component status" icon={CreditCard}>
+          <div className="space-y-3">
+            {breakdown.map((item) => (
+              <div key={item.item} className="surface-card flex items-center justify-between gap-3 p-4">
+                <div>
+                  <p className="text-sm font-black text-white">
+                    {item.item}
+                  </p>
+                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                    {item.paid ? 'Paid' : 'Due'}
+                  </p>
+                </div>
+                <p className={`text-sm font-black ${item.paid ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  Rs {Number(item.amount || 0).toLocaleString()}
+                </p>
               </div>
             ))}
           </div>
         </GlassCard>
       </div>
 
-      {/* Pending Dues highlighted */}
-      {TRANSACTIONS.filter(t => t.status === 'Due').length > 0 && (
-        <div className="mb-6 space-y-2">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-amber-400 flex items-center gap-2 mb-3">
-            <AlertTriangle size={13} /> Pending Payments
-          </h3>
-          {TRANSACTIONS.filter(t => t.status === 'Due').map(t => (
-            <div key={t.id} className="flex items-center gap-4 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20">
-              <div className="flex-1">
-                <p className="text-sm font-black text-white">{t.desc}</p>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-[10px] text-slate-500 font-mono">{t.id}</span>
-                  {t.dueDate && <DaysCountdown dueDate={t.dueDate} />}
+      {dueItems.length ? (
+        <GlassCard title="Pending dues" subtitle="Payments needing attention" icon={AlertTriangle} className="mb-8">
+          <div className="space-y-3">
+            {dueItems.map((item) => (
+              <div key={item.id} className="surface-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">
+                    {item.desc}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                      {item.id}
+                    </span>
+                    {item.dueDate ? <DaysCountdown dueDate={item.dueDate} /> : null}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-lg font-black text-white">
+                    Rs {item.amount.toLocaleString()}
+                  </p>
+                  <button type="button" onClick={() => setPayingItem(item)} className="btn-primary">
+                    <Zap size={14} />
+                    Pay now
+                  </button>
                 </div>
               </div>
-              <p className="text-lg font-black text-white">₹{t.amount.toLocaleString()}</p>
-              <button onClick={() => setPayingItem(t)}
-                className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-[0_0_15px_rgba(99,102,241,0.4)] flex items-center gap-2">
-                <Zap size={12} /> Pay Now
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        </GlassCard>
+      ) : null}
 
-      {/* All Transactions */}
-      <GlassCard>
-        <div className="p-5 border-b border-white/5 flex items-center justify-between">
-          <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-            <Receipt size={14} /> Payment History
-          </h3>
-          <span className="text-[9px] text-slate-600">{TRANSACTIONS.length} transactions</span>
-        </div>
-        <div className="divide-y divide-white/5">
-          {TRANSACTIONS.map((t, i) => (
-            <motion.div key={t.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.04 }}
-              className="flex items-center gap-4 p-4 hover:bg-white/[0.02] transition-colors">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${t.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                {t.status === 'Paid' ? <CheckCircle2 size={18} /> : <Clock size={18} />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-black text-white truncate">{t.desc}</p>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-[9px] text-slate-500 font-mono">{t.id} · {t.date}</span>
+      <GlassCard title="Transaction ledger" subtitle="Payment history and receipt archive" icon={Receipt}>
+        <div className="space-y-3">
+          {transactions.map((item) => (
+            <div key={item.id} className="surface-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-start gap-4">
+                <div className={`flex h-11 w-11 items-center justify-center rounded-2xl border ${
+                  item.status === 'Paid'
+                    ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+                    : 'border-amber-500/20 bg-amber-500/10 text-amber-300'
+                }`}>
+                  {item.status === 'Paid' ? <CheckCircle2 size={18} /> : <Clock3 size={18} />}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-black text-white">
+                    {item.desc}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    <span>{item.id}</span>
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} />
+                      {item.date}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <p className="font-black text-white tabular-nums">₹{t.amount.toLocaleString()}</p>
-              {t.status === 'Paid' ? (
-                <button onClick={() => push({ type: 'success', title: 'Receipt Downloaded', body: `${t.receipt} saved to your device.` })}
-                  className="p-2 rounded-xl text-slate-400 bg-white/5 border border-white/10 hover:text-white hover:bg-white/10 transition-all">
-                  <Download size={14} />
-                </button>
-              ) : (
-                <button onClick={() => setPayingItem(t)}
-                  className="px-4 py-2 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-500/20 transition-colors">
-                  Pay
-                </button>
-              )}
-            </motion.div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="text-lg font-black text-white">
+                  Rs {item.amount.toLocaleString()}
+                </p>
+                {item.status === 'Paid' ? (
+                  <button
+                    type="button"
+                    onClick={() => push({ type: 'success', title: 'Receipt ready', body: `${item.receipt} download flow is available from this ledger.` })}
+                    className="btn-secondary"
+                  >
+                    <Download size={14} />
+                    Receipt
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setPayingItem(item)} className="btn-secondary">
+                    <CreditCard size={14} />
+                    Pay
+                  </button>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       </GlassCard>
 
-      {/* Payment Modal */}
       <AnimatePresence>
-        {payingItem && <PaymentModal item={payingItem} onClose={() => setPayingItem(null)} />}
+        {payingItem ? <PaymentModal item={payingItem} onClose={() => setPayingItem(null)} onSuccess={handlePaymentSuccess} /> : null}
       </AnimatePresence>
     </DashboardLayout>
   );

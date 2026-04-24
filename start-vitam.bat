@@ -25,11 +25,12 @@ if not exist node_modules (
 )
 popd
 
-echo [4/4] Launching Backend on Port 5100 and Frontend on Port 5173...
+echo [4/4] Launching one-click orchestrator...
 echo.
 echo ========================================================
-echo The application is now LIVE. 
-echo Open your browser to: http://localhost:5173
+echo This launcher waits for readiness, selects free local ports,
+echo and then opens the active VITAM workspace automatically on
+echo a passkey-safe localhost URL.
 echo ========================================================
 echo.
-call npm.cmd run dev
+call npm.cmd run launch

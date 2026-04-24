@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, Home, ArrowLeft, RefreshCw } from 'lucide-react';
+import { requestAppRecovery } from '../../utils/appRecovery';
 
 export default function NotFound() {
   const navigate = useNavigate();
@@ -66,7 +67,7 @@ export default function NotFound() {
             <Home size={14} /> Mission Control
           </button>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => requestAppRecovery({ reason: 'missing-route', maxReloads: 1, fallbackPath: '/' })}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-white/5 border border-white/10 text-slate-400 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all"
           >
             <RefreshCw size={14} /> Retry Node

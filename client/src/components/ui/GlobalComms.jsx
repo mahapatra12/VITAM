@@ -1,211 +1,278 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Send, X, Users, Lock, MoreVertical, Hash, ShieldCheck, ChevronDown, CheckCheck, Zap } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  CheckCheck,
+  Hash,
+  Lock,
+  MessageSquare,
+  Send,
+  ShieldCheck,
+  X,
+  Zap
+} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const MOCK_CHANNELS = [
   { id: 'c1', name: 'Global Announcements', type: 'public', unread: 2 },
   { id: 'c2', name: 'Academic Senate', type: 'private', unread: 0 },
-  { id: 'c3', name: 'Emergency Broadcast', type: 'alert', unread: 1 },
+  { id: 'c3', name: 'Emergency Broadcast', type: 'alert', unread: 1 }
 ];
 
 const MOCK_DM = [
-  { id: 'd1', name: 'Dr. Sarah (HOD CS)', role: 'HOD', online: true, lastMsg: 'Syllabus approved.' },
+  { id: 'd1', name: 'Dr. Sarah', role: 'HOD', online: true, lastMsg: 'Syllabus approved.' },
   { id: 'd2', name: 'Finance Terminal', role: 'FINANCE', online: true, lastMsg: 'Ledger updated.' },
-  { id: 'd3', name: 'Campus Security', role: 'ADMIN', online: false, lastMsg: 'Gate 4 secured.' },
+  { id: 'd3', name: 'Campus Security', role: 'ADMIN', online: false, lastMsg: 'Gate 4 secured.' }
 ];
 
 export default function GlobalComms({ isOpen, onClose }) {
   const { user } = useAuth();
   const [activeChat, setActiveChat] = useState(MOCK_CHANNELS[0]);
   const [messages, setMessages] = useState([
-    { id: 1, sender: 'System AI', role: 'SYSTEM', text: 'End-to-end encryption initialized. AES-256 keys exchanged.', isSystem: true, time: '09:00' },
-    { id: 2, sender: 'Dr. Allen', role: 'CHAIRMAN', text: 'All departments proceed with Phase 3 protocol.', isSystem: false, time: '09:05' }
+    { id: 1, sender: 'System Relay', role: 'SYSTEM', text: 'Secure collaboration channel initialized.', isSystem: true, time: '09:00' },
+    { id: 2, sender: 'Dr. Allen', role: 'CHAIRMAN', text: 'All departments can proceed with today’s release plan.', isSystem: false, time: '09:05' }
   ]);
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef(null);
+  const replyTimeoutsRef = useRef([]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
+  const clearReplyTimers = useCallback(() => {
+    replyTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    replyTimeoutsRef.current = [];
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isOpen]);
 
-  const handleSend = (e) => {
-    e.preventDefault();
-    if (!inputValue.trim()) return;
+  useEffect(() => {
+    if (!isOpen) {
+      clearReplyTimers();
+      setInputValue('');
+    }
+  }, [clearReplyTimers, isOpen]);
 
-    const newMsg = {
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => () => {
+    clearReplyTimers();
+  }, [clearReplyTimers]);
+
+  const handleSend = (event) => {
+    event.preventDefault();
+    const nextText = inputValue.trim();
+    if (!nextText) {
+      return;
+    }
+
+    const newMessage = {
       id: Date.now(),
       sender: user?.name || 'Unknown Identity',
       role: user?.role || 'GUEST',
-      text: inputValue,
+      text: nextText,
       isSystem: false,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isSelf: true
     };
 
-    setMessages([...messages, newMsg]);
+    setMessages((previous) => [...previous, newMessage]);
     setInputValue('');
 
-    // Simulate AI or Peer Response
-    setTimeout(() => {
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        sender: 'Network Proxy',
-        role: 'SYSTEM',
-        text: 'Message block added to immutable ledger.',
-        isSystem: true,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
+    const timeoutId = setTimeout(() => {
+      replyTimeoutsRef.current = replyTimeoutsRef.current.filter((id) => id !== timeoutId);
+      setMessages((previous) => [
+        ...previous,
+        {
+          id: Date.now() + 1,
+          sender: 'Network Relay',
+          role: 'SYSTEM',
+          text: 'Message delivered and indexed in the collaboration ledger.',
+          isSystem: true,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }
+      ]);
     }, 1500);
+
+    replyTimeoutsRef.current.push(timeoutId);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <AnimatePresence>
-      <motion.div 
-        initial={{ opacity: 0, x: 400 }}
+      <motion.div
+        initial={{ opacity: 0, x: 360 }}
         animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 400 }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="fixed inset-y-0 right-0 w-full sm:w-[450px] bg-[#050505] border-l border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.9)] z-[100] flex flex-col"
+        exit={{ opacity: 0, x: 360 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="fixed inset-y-0 right-0 z-[100] flex w-full justify-end bg-[rgba(2,8,23,0.38)] backdrop-blur-sm"
       >
-        {/* Header */}
-        <div className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-white/[0.02]">
-           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
-               <MessageSquare size={16} />
-             </div>
-             <div>
-               <h2 className="text-sm font-black text-white uppercase tracking-widest leading-none">Global Comms</h2>
-               <p className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest mt-1 flex items-center gap-1">
-                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Encrypted Socket Live
-               </p>
-             </div>
-           </div>
-           <button onClick={onClose} className="p-2 text-slate-500 hover:text-white rounded-xl hover:bg-white/5 transition-colors">
-             <X size={18} />
-           </button>
-        </div>
+        <div className="premium-card m-3 flex h-[calc(100vh-1.5rem)] w-full max-w-[28rem] overflow-hidden rounded-[2rem] p-0">
+          <div className="flex w-full flex-col">
+            <div className="border-b border-white/10 px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/10 text-indigo-200">
+                    <MessageSquare size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-black text-white">
+                      Global Comms
+                    </h2>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-400">
+                      Encrypted collaboration live
+                    </p>
+                  </div>
+                </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar Channels */}
-          <div className="w-20 sm:w-24 border-r border-white/5 bg-black/40 flex flex-col items-center py-6 gap-6 overflow-y-auto hidden-scrollbar">
-             
-             {/* Channels */}
-             <div className="w-full space-y-3 px-3">
-               <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest text-center mb-4">Grid</div>
-               {MOCK_CHANNELS.map(ch => (
-                 <button 
-                   key={ch.id}
-                   onClick={() => setActiveChat(ch)}
-                   className={`w-full aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 relative group transition-all ${activeChat.id === ch.id ? 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-400' : 'bg-white/5 text-slate-500 hover:bg-white/10 hover:text-white border border-transparent'}`}
-                 >
-                   {ch.type === 'public' ? <Hash size={18} /> : ch.type === 'alert' ? <ShieldCheck size={18} className="text-rose-500" /> : <Lock size={18} />}
-                   {ch.unread > 0 && <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 rounded-full text-[9px] text-white font-bold flex items-center justify-center border-2 border-[#050505]">{ch.unread}</span>}
-                 </button>
-               ))}
-             </div>
-
-             <div className="w-8 h-px bg-white/5 my-2" />
-
-             {/* DMs */}
-             <div className="w-full space-y-3 px-3">
-               <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest text-center mb-4">Peers</div>
-               {MOCK_DM.map(dm => (
-                 <button 
-                   key={dm.id}
-                   onClick={() => setActiveChat(dm)}
-                   className={`w-full aspect-square rounded-full flex flex-col items-center justify-center relative group transition-all ${activeChat.id === dm.id ? 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-400' : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white border border-transparent'}`}
-                 >
-                   <span className="font-black text-sm">{dm.name.charAt(0)}</span>
-                   <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#050505] ${dm.online ? 'bg-emerald-500' : 'bg-slate-600'}`} />
-                 </button>
-               ))}
-             </div>
-          </div>
-
-          {/* Chat Zone */}
-          <div className="flex-1 flex flex-col bg-[#050505]/95 relative">
-            <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 50% 50%, #6366f1 0%, transparent 80%)' }} />
-            
-            {/* Chat Header */}
-            <div className="p-4 border-b border-white/5 flex flex-col gap-1 backdrop-blur-md z-10">
-              <h3 className="text-sm font-black text-white flex items-center gap-2">
-                {activeChat.name} <ChevronDown size={14} className="text-slate-500" />
-              </h3>
-              <p className="text-[10px] text-slate-500 font-mono">
-                {activeChat.type ? `Connected Node: ${activeChat.id.toUpperCase()}` : `Direct RSA Tunnel established`}
-              </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-slate-400 transition-all hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-6 z-10 custom-scroll">
-               {messages.map((msg, idx) => {
-                 if (msg.isSystem) {
-                   return (
-                     <div key={msg.id} className="flex justify-center my-4">
-                       <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-full text-[9px] font-mono text-slate-400 flex items-center gap-2">
-                         <Zap size={10} className="text-indigo-400" /> {msg.text}
-                       </span>
-                     </div>
-                   )
-                 }
-                 
-                 return (
-                   <motion.div 
-                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                     key={msg.id} 
-                     className={`flex flex-col ${msg.isSelf ? 'items-end' : 'items-start'}`}
-                   >
-                     <div className="flex items-center gap-2 mb-1.5 px-1">
-                       {!msg.isSelf && <span className="text-[10px] font-black text-slate-400">{msg.sender}</span>}
-                       <span className={`text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded ${msg.isSelf ? 'bg-indigo-500/20 text-indigo-400' : 'bg-slate-800 text-slate-400'}`}>
-                         {msg.role}
-                       </span>
-                       <span className="text-[9px] text-slate-600 font-mono">{msg.time}</span>
-                     </div>
-                     <div className={`max-w-[85%] p-3 rounded-2xl text-sm leading-relaxed shadow-lg ${msg.isSelf ? 'bg-indigo-600 text-white rounded-tr-sm border-l border-t border-indigo-400/30' : 'bg-slate-800 border border-white/10 text-slate-200 rounded-tl-sm'}`}>
-                       {msg.text}
-                     </div>
-                     {msg.isSelf && (
-                       <div className="mt-1 flex items-center gap-1 text-[9px] text-slate-500 font-bold px-1">
-                         <CheckCheck size={12} className="text-indigo-400" /> Delivered
-                       </div>
-                     )}
-                   </motion.div>
-                 )
-               })}
-               <div ref={messagesEndRef} />
+            <div className="border-b border-white/5 px-4 py-3">
+              <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+                {MOCK_CHANNELS.map((channel) => (
+                  <button
+                    key={channel.id}
+                    type="button"
+                    onClick={() => setActiveChat(channel)}
+                    className={`${activeChat.id === channel.id ? 'status-pill border-indigo-500/25 bg-indigo-500/10 text-indigo-200' : 'status-pill'} relative whitespace-nowrap`}
+                  >
+                    {channel.type === 'public' ? <Hash size={12} /> : channel.type === 'alert' ? <ShieldCheck size={12} /> : <Lock size={12} />}
+                    {channel.name}
+                    {channel.unread > 0 ? (
+                      <span className="ml-1 rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-black text-white">
+                        {channel.unread}
+                      </span>
+                    ) : null}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* Input Zone */}
-            <div className="p-4 bg-black/40 border-t border-white/5 backdrop-blur-md z-10">
-               <form onSubmit={handleSend} className="relative flex items-center">
-                 <input 
-                   type="text" 
-                   value={inputValue}
-                   onChange={e => setInputValue(e.target.value)}
-                   placeholder="Transmit encrypted payload..."
-                   className="w-full bg-slate-900 border border-white/10 rounded-2xl py-3 pl-4 pr-12 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors placeholder:text-slate-600 font-medium"
-                 />
-                 <button 
-                   type="submit"
-                   disabled={!inputValue.trim()}
-                   className="absolute right-2 w-8 h-8 rounded-xl bg-indigo-500 text-white flex items-center justify-center disabled:opacity-50 disabled:bg-slate-800 hover:bg-indigo-400 transition-colors"
-                 >
-                   <Send size={14} className="ml-0.5" />
-                 </button>
-               </form>
-               <p className="text-center mt-3 text-[9px] font-bold text-slate-600 uppercase tracking-widest flex items-center justify-center gap-1">
-                 <Lock size={10} /> 256-bit AES Matrix Active
-               </p>
-            </div>
+            <div className="grid flex-1 grid-rows-[auto_1fr_auto] overflow-hidden">
+              <div className="border-b border-white/5 px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-black text-white">
+                      {activeChat.name}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                      {activeChat.type ? `Channel ${activeChat.id.toUpperCase()}` : 'Direct secure thread'}
+                    </p>
+                  </div>
+                  <div className="status-pill border-emerald-500/20 bg-emerald-500/10 text-emerald-300">
+                    Live
+                  </div>
+                </div>
+              </div>
 
+              <div className="overflow-y-auto px-4 py-4">
+                <div className="space-y-4">
+                  {messages.map((message) => {
+                    if (message.isSystem) {
+                      return (
+                        <div key={message.id} className="flex justify-center">
+                          <span className="status-pill">
+                            <Zap size={11} />
+                            {message.text}
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <motion.div
+                        key={message.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`flex flex-col ${message.isSelf ? 'items-end' : 'items-start'}`}
+                      >
+                        <div className="mb-1 flex items-center gap-2 px-1">
+                          {!message.isSelf ? (
+                            <span className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                              {message.sender}
+                            </span>
+                          ) : null}
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                            {message.role}
+                          </span>
+                        </div>
+
+                        <div className={`max-w-[84%] rounded-[1.3rem] px-4 py-3 text-sm leading-6 ${
+                          message.isSelf
+                            ? 'rounded-tr-md bg-indigo-600 text-white'
+                            : 'rounded-tl-md border border-white/10 bg-slate-950/75 text-slate-100'
+                        }`}>
+                          {message.text}
+                        </div>
+
+                        <div className="mt-1 flex items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">
+                          <span>{message.time}</span>
+                          {message.isSelf ? <CheckCheck size={11} className="text-indigo-300" /> : null}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              <div className="border-t border-white/10 p-4">
+                <div className="mb-3 flex gap-2 overflow-x-auto scrollbar-hide">
+                  {MOCK_DM.map((peer) => (
+                    <button
+                      key={peer.id}
+                      type="button"
+                      onClick={() => setActiveChat(peer)}
+                      className={`status-pill whitespace-nowrap ${activeChat.id === peer.id ? 'border-cyan-500/25 bg-cyan-500/10 text-cyan-100' : ''}`}
+                    >
+                      {peer.name}
+                    </button>
+                  ))}
+                </div>
+
+                <form onSubmit={handleSend} className="flex items-center gap-2 rounded-[1.4rem] border border-white/10 bg-slate-950/75 px-2 py-2">
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(event) => setInputValue(event.target.value)}
+                    placeholder="Send a secure message..."
+                    className="flex-1 bg-transparent px-2 text-sm text-white outline-none placeholder:text-slate-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!inputValue.trim()}
+                    className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-600 text-white transition-all hover:bg-indigo-500 disabled:opacity-40"
+                  >
+                    <Send size={15} />
+                  </button>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       </motion.div>

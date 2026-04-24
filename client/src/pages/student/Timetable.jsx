@@ -1,197 +1,363 @@
-import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, User, ChevronRight, Zap, Globe, Cpu, Navigation, X } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  CalendarDays,
+  Clock3,
+  MapPin,
+  Navigation,
+  UserRound,
+  X
+} from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
+import { GlassCard, StatCard } from '../../components/ui/DashboardComponents';
+import WorkspaceHero from '../../components/ui/WorkspaceHero';
 import api from '../../utils/api';
+import {
+  DEFAULT_PORTAL_DATA,
+  STUDENT_PORTAL_DAYS,
+  enrichTimetableForDay,
+  getCurrentPortalDay,
+  normalizePortalData
+} from '../../utils/studentPortalData';
 
-const ScheduleSlot = ({ slot, onNavigate }) => (
-  <motion.div 
-    whileHover={{ x: 10 }}
-    className={`p-8 rounded-[40px] border shadow-2xl relative overflow-hidden group flex flex-col md:flex-row md:items-center gap-10 transition-colors ${slot.status === 'In Session' ? 'bg-[#0a0a0a] border-appleBlue/20 shadow-appleBlue/5' : 'bg-[#0a0a0a] border-white/5'}`}
-  >
-    {slot.status === 'In Session' && (
-      <div className="absolute left-0 top-0 w-2 h-full bg-appleBlue animate-pulse" />
-    )}
-    
-    <div className="w-full md:w-32 shrink-0">
-      <div className={`p-4 rounded-2xl flex items-center justify-center gap-3 ${slot.status === 'In Session' ? 'bg-appleBlue text-white' : 'bg-appleBlue/10 text-appleBlue'}`}>
-        <Clock size={16} />
-        <span className="text-sm font-black tabular-nums">{slot.time}</span>
+const statusTone = (status) => {
+  if (status === 'In Session') {
+    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300';
+  }
+
+  if (status === 'Completed') {
+    return 'border-slate-600/40 bg-slate-800/60 text-slate-300';
+  }
+
+  return 'border-blue-500/20 bg-blue-500/10 text-blue-200';
+};
+
+function ScheduleCard({ slot, onNavigate }) {
+  return (
+    <motion.div whileHover={{ y: -2 }} className="surface-card p-5 md:p-6">
+      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl border border-white/10 bg-white/[0.05] text-blue-200">
+            <Clock3 size={22} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-xl font-black text-white">
+                {slot.subject}
+              </p>
+              <span className={`rounded-full border px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.2em] ${statusTone(slot.status)}`}>
+                {slot.status}
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-slate-300">
+              <span className="flex items-center gap-2">
+                <UserRound size={14} className="text-slate-500" />
+                {slot.faculty}
+              </span>
+              <button
+                type="button"
+                onClick={() => onNavigate(slot)}
+                className="flex items-center gap-2 text-blue-200 transition-colors hover:text-white"
+              >
+                <MapPin size={14} />
+                {slot.room}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 xl:min-w-[280px]">
+          <div className="rounded-2xl border border-white/8 bg-slate-950/45 p-4">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-500">
+              Class time
+            </p>
+            <p className="mt-2 text-lg font-black text-white">
+              {slot.time}
+            </p>
+          </div>
+          <button type="button" onClick={() => onNavigate(slot)} className="btn-secondary justify-center">
+            <Navigation size={14} />
+            Room guide
+          </button>
+        </div>
       </div>
-    </div>
-    
-    <div className="flex-1 space-y-2">
-       <div className="flex items-center gap-3">
-          <Cpu size={14} className="text-apple-text-secondary dark:text-white/20" />
-          <p className="text-[10px] font-black uppercase tracking-widest text-apple-text-secondary dark:text-white/20">Scheduled Class</p>
-       </div>
-       <h3 className={`text-2xl font-black tracking-tight italic uppercase transition-colors ${slot.status === 'In Session' ? 'text-appleBlue' : 'text-white group-hover:text-appleBlue'}`}>{slot.subject}</h3>
-       <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-             <User size={12} className="text-appleBlue/40" />
-             <span className="text-xs font-bold text-white/40">{slot.faculty}</span>
-          </div>
-          <div className="flex items-center gap-2 cursor-pointer group/loc" onClick={() => onNavigate(slot)}>
-             <MapPin size={12} className="text-appleBlue/40 group-hover/loc:text-appleBlue transition-colors" />
-             <span className="text-xs font-bold text-white/40 group-hover/loc:text-white transition-colors">{slot.room}</span>
-          </div>
-       </div>
-    </div>
-    
-    <div className="flex gap-4 md:ml-auto">
-       <div className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest italic border ${slot.status === 'In Session' ? 'bg-emerald-500 text-white border-emerald-500 shadow-[0_0_15px_#10b981]' : 'bg-black/5 dark:bg-white/5 text-white/20 border-white/5'}`}>
-          {slot.status || 'Standby'}
-       </div>
-       <button onClick={() => onNavigate(slot)} className="p-4 bg-white/5 rounded-2xl text-white/20 hover:text-appleBlue transition-all">
-          <Navigation size={18} />
-       </button>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+}
 
-const Timetable = () => {
-  const [schedule, setSchedule] = useState([]);
-  const [selectedDay, setSelectedDay] = useState(new Date().toLocaleDateString('en-US', { weekday: 'long' }));
+export default function Timetable() {
+  const [portalData, setPortalData] = useState(DEFAULT_PORTAL_DATA);
+  const [selectedDay, setSelectedDay] = useState(getCurrentPortalDay());
   const [loading, setLoading] = useState(true);
-  const [navSlot, setNavSlot] = useState(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [navSlot, setNavSlot] = useState(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
-    const fetchTimetable = async () => {
+    const loadPortalData = async () => {
       try {
-        const res = await api.get('/timetable/branch/' + (localStorage.getItem('branch') || 'CSE') + '/' + (localStorage.getItem('semester') || '3'));
-        if (res.data && res.data.slots) {
-           setSchedule(res.data.slots);
-        } else {
-          setSchedule([
-            { time: "09:00 AM", subject: "Quantum Logic", faculty: "Dr. Rivera", room: "VAULT-01", status: "Completed" },
-            { time: "11:00 AM", subject: "Neural Networks", faculty: "Prof. Sato", room: "NODE-402", status: "In Session" },
-            { time: "01:30 PM", subject: "Institutional Ethics", faculty: "Admin Alpha", room: "CORRIDOR-A", status: "Standby" },
-            { time: "03:30 PM", subject: "System Security", faculty: "Dr. Stern", room: "VAULT-04", status: "Standby" },
-          ]);
-        }
-      } catch (err) {
-        setSchedule([
-          { time: "09:00 AM", subject: "Quantum Logic", faculty: "Dr. Rivera", room: "VAULT-01", status: "Completed" },
-          { time: "11:00 AM", subject: "Neural Networks", faculty: "Prof. Sato", room: "NODE-402", status: "In Session" },
-          { time: "01:30 PM", subject: "Institutional Ethics", faculty: "Admin Alpha", room: "CORRIDOR-A", status: "Standby" },
-          { time: "03:30 PM", subject: "System Security", faculty: "Dr. Stern", room: "VAULT-04", status: "Standby" },
-        ]);
+        const { data } = await api.get('/student/portal', {
+          cache: {
+            maxAge: 30000,
+            staleWhileRevalidate: true,
+            revalidateAfter: 12000,
+            persist: true,
+            onUpdate: (response) => setPortalData(normalizePortalData(response?.data))
+          }
+        });
+        setPortalData(normalizePortalData(data));
+      } catch {
+        setPortalData(DEFAULT_PORTAL_DATA);
       } finally {
         setLoading(false);
       }
     };
-    fetchTimetable();
-  }, [selectedDay]);
 
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    loadPortalData();
+  }, []);
+
+  useEffect(() => {
+    if (portalData?.today) {
+      setSelectedDay(portalData.today);
+    }
+  }, [portalData.today]);
+
+  const schedule = useMemo(
+    () => enrichTimetableForDay(selectedDay, portalData.timetable?.[selectedDay] || [], currentTime),
+    [currentTime, portalData.timetable, selectedDay]
+  );
+
+  const liveToday = portalData.today || getCurrentPortalDay();
+  const todaySchedule = useMemo(
+    () => enrichTimetableForDay(liveToday, portalData.timetable?.[liveToday] || [], currentTime),
+    [currentTime, liveToday, portalData.timetable]
+  );
+
+  const nextSlot = schedule.find((slot) => slot.status !== 'Completed') || schedule[0];
+  const currentDayNextSlot = todaySchedule.find((slot) => slot.status !== 'Completed') || todaySchedule[0];
+  const inSessionCount = schedule.filter((slot) => slot.status === 'In Session').length;
+  const completedCount = schedule.filter((slot) => slot.status === 'Completed').length;
+  const totalWeeklyClasses = STUDENT_PORTAL_DAYS.reduce(
+    (sum, day) => sum + (portalData.timetable?.[day]?.length || 0),
+    0
+  );
+  const dayProgressLabel = schedule.length ? `${completedCount}/${schedule.length} completed` : 'No classes';
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Weekly Schedule" role="STUDENT">
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-8">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-blue-600/30 border-t-blue-600 shadow-2xl shadow-blue-600/20" />
+          <p className="animate-pulse text-[11px] font-black uppercase tracking-[0.6em] text-slate-500">
+            Timetable synchronization
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Weekly Schedule" role="STUDENT">
-      <div className="relative min-h-screen p-4 md:p-10 space-y-12 max-w-6xl mx-auto">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-10">
-           <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-2 h-2 bg-purple-500 rounded-full animate-ping shadow-[0_0_10px_#a855f7]" />
-                <span className="text-[11px] font-black uppercase tracking-[0.8em] text-apple-text-secondary dark:text-white/40">Temporal State: Synchronized</span>
+      <WorkspaceHero
+        eyebrow="Timetable workspace"
+        title="Daily academic timeline"
+        description="Check live class flow, faculty, room movement, and the next active session from a timetable layout designed to stay fast and easy to scan on both laptop and mobile."
+        icon={CalendarDays}
+        badges={[
+          `${selectedDay} selected`,
+          `${schedule.length} classes scheduled`,
+          `${inSessionCount} live now`
+        ]}
+        stats={[
+          { label: 'Current time', value: currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) },
+          { label: 'Next class', value: nextSlot?.time || '--' },
+          { label: 'Weekly load', value: String(totalWeeklyClasses) },
+          { label: 'Progress', value: dayProgressLabel }
+        ]}
+        aside={(
+          <div className="glass-panel h-full p-6 md:p-7">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+              Next movement
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-white">
+              {currentDayNextSlot?.subject || 'No active class'}
+            </h3>
+            <div className="mt-6 space-y-3">
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  Program lane
+                </p>
+                <p className="mt-3 text-sm leading-6 text-slate-200">
+                  {portalData.profile.program} | {portalData.profile.semesterLabel}
+                </p>
               </div>
-              <h1 className="text-4xl md:text-6xl font-black text-apple-text-primary dark:text-white tracking-tight">Daily <span className="text-appleBlue">Schedule</span></h1>
-              <p className="text-sm font-bold text-apple-text-secondary dark:text-white/20 uppercase tracking-[0.4em] max-w-xl">
-                View your daily class schedule, faculty details, and room assignments.
-              </p>
-           </div>
-           
-           <div className="text-right space-y-2">
-              <div className="px-6 py-3 bg-appleBlue/10 border border-appleBlue/30 rounded-2xl">
-                 <p className="text-[10px] font-black text-appleBlue uppercase tracking-widest">NEXT CLASS: 14m 22s</p>
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  Navigation note
+                </p>
+                <p className="mt-3 text-sm leading-6 text-emerald-300">
+                  Use room guide before the bell window starts so room changes feel smoother across blocks.
+                </p>
               </div>
-              <h3 className="text-3xl font-black text-white italic uppercase tracking-tighter tabular-nums">
-                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </h3>
-              <p className="text-[10px] font-black uppercase tracking-widest text-white/20">Institutional Temporal Node</p>
-           </div>
-        </div>
+            </div>
+          </div>
+        )}
+      />
 
-        {/* Day Selector */}
-        <div className="flex flex-wrap gap-4 p-4 bg-black/5 dark:bg-white/5 rounded-[35px] border border-black/5 dark:border-white/5 backdrop-blur-xl">
-          {days.map((day) => (
-            <button 
-              key={day}
-              onClick={() => setSelectedDay(day)}
-              className={`px-8 py-4 rounded-[20px] text-[10px] font-black uppercase tracking-[0.3em] transition-all ${selectedDay === day ? 'bg-appleBlue text-white shadow-xl shadow-appleBlue/20 scale-105' : 'text-apple-text-secondary dark:text-white/20 hover:text-white hover:bg-white/5'}`}
-            >
-              {day}
-            </button>
-          ))}
-        </div>
-
-        {/* Schedule List */}
-        <div className="space-y-8 pb-20">
-          {schedule.map((slot, i) => (
-            <ScheduleSlot key={i} slot={slot} onNavigate={setNavSlot} />
-          ))}
-        </div>
-
-        {/* Global Navigation Overlay */}
-        <AnimatePresence>
-          {navSlot && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-[#050505]/95 backdrop-blur-3xl flex items-center justify-center p-6"
-            >
-               <motion.div 
-                 initial={{ scale: 0.9, y: 20 }}
-                 animate={{ scale: 1, y: 0 }}
-                 className="w-full max-w-xl bg-[#0a0a0a] border border-white/10 rounded-[50px] p-12 relative overflow-hidden group"
-               >
-                  <div className="absolute top-0 right-0 p-8">
-                     <button onClick={() => setNavSlot(null)} className="p-4 bg-white/5 rounded-full text-white">
-                        <X size={24} />
-                     </button>
-                  </div>
-                  
-                  <div className="space-y-10">
-                     <div className="flex items-center gap-6">
-                        <div className="p-6 bg-appleBlue rounded-[30px] text-white">
-                           <Navigation size={32} />
-                        </div>
-                        <div>
-                           <h3 className="text-2xl font-black text-white uppercase italic">{navSlot.subject}</h3>
-                           <p className="text-[10px] font-black text-appleBlue uppercase tracking-[0.4em]">{navSlot.room}</p>
-                        </div>
-                     </div>
-
-                     <div className="p-10 bg-white/5 rounded-[40px] border border-white/5 relative overflow-hidden text-center space-y-6">
-                        <div className="p-4 bg-white/5 rounded-2xl inline-flex items-center gap-4 text-emerald-500">
-                           <MapPin size={24} />
-                           <span className="text-xl font-black italic uppercase tracking-tighter">BLOCK-C // LEVEL 04</span>
-                        </div>
-                        <p className="text-xs font-bold text-white/30 leading-relaxed max-w-sm mx-auto">
-                           Proceed through the South Corridor. The room is adjacent to the Quantum Simulation Lab.
-                        </p>
-                        <div className="pt-6">
-                           <button className="w-full py-5 bg-appleBlue text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-2xl shadow-appleBlue/20">Sync AR Navigation</button>
-                        </div>
-                     </div>
-                  </div>
-               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+      <div className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
+        <StatCard title="Classes Today" value={String(todaySchedule.length)} icon={CalendarDays} color="bg-blue-500" trend="Academic load" />
+        <StatCard title="In Session" value={String(inSessionCount)} icon={Clock3} color="bg-emerald-500" trend="Live now" />
+        <StatCard title="Completed" value={String(completedCount)} icon={Clock3} color="bg-slate-700" trend="Finished" />
+        <StatCard title="Next Room" value={nextSlot?.room || '--'} icon={MapPin} color="bg-violet-500" trend="Movement ready" />
       </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_0.7fr]">
+        <GlassCard title="Week Selector" subtitle="Jump between live day schedules">
+          <div className="flex flex-wrap gap-2">
+            {STUDENT_PORTAL_DAYS.map((day) => (
+              <button
+                key={day}
+                type="button"
+                onClick={() => setSelectedDay(day)}
+                className={selectedDay === day ? 'btn-primary' : 'btn-secondary'}
+              >
+                {day}
+              </button>
+            ))}
+          </div>
+        </GlassCard>
+
+        <GlassCard title="Day Focus" subtitle="What to remember" icon={Navigation}>
+          <div className="space-y-3">
+            {[
+              currentDayNextSlot
+                ? `${currentDayNextSlot.subject} is the next high-priority movement on your current schedule.`
+                : 'No immediate class lane is active right now.',
+              `${portalData.profile.branch} students can use this space as the quick handoff view before moving to labs or lecture rooms.`,
+              'Completed classes remain visible so your daily flow stays easy to track.'
+            ].map((item) => (
+              <div key={item} className="surface-card flex items-start gap-3 p-4">
+                <div className="mt-1 h-2 w-2 rounded-full bg-blue-400" />
+                <p className="text-sm leading-6 text-slate-200">
+                  {item}
+                </p>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      </div>
+
+      <GlassCard title={`${selectedDay} Schedule`} subtitle="Live class timeline and room movement">
+        <div className="space-y-4">
+          {schedule.length ? (
+            schedule.map((slot) => (
+              <ScheduleCard key={`${selectedDay}-${slot.time}-${slot.subject}`} slot={slot} onNavigate={setNavSlot} />
+            ))
+          ) : (
+            <div className="surface-card p-6 text-sm leading-7 text-slate-300">
+              No classes are scheduled for {selectedDay}. The timetable will update automatically when academic scheduling changes.
+            </div>
+          )}
+        </div>
+      </GlassCard>
+
+      <AnimatePresence>
+        {navSlot ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-[rgba(3,8,20,0.78)] p-4 backdrop-blur-2xl"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 12 }}
+              className="premium-card relative w-full max-w-2xl overflow-hidden p-6 md:p-8"
+            >
+              <button
+                type="button"
+                onClick={() => setNavSlot(null)}
+                className="absolute right-5 top-5 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-slate-500 transition-all hover:text-white"
+              >
+                <X size={18} />
+              </button>
+
+              <div className="grid gap-6 md:grid-cols-[0.95fr_1.05fr]">
+                <div className="glass-panel p-6">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-blue-500/20 bg-blue-500/10 text-blue-200">
+                    <Navigation size={24} />
+                  </div>
+                  <h3 className="mt-5 text-2xl font-black text-white">
+                    {navSlot.subject}
+                  </h3>
+                  <p className="mt-2 text-sm leading-7 text-slate-300">
+                    Move toward {navSlot.room} for the next session. This route card is ready for indoor map integration and guided navigation.
+                  </p>
+                  <div className="mt-5 space-y-3">
+                    <div className="surface-card p-4">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                        Faculty
+                      </p>
+                      <p className="mt-2 text-sm font-black text-white">
+                        {navSlot.faculty}
+                      </p>
+                    </div>
+                    <div className="surface-card p-4">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                        Start time
+                      </p>
+                      <p className="mt-2 text-sm font-black text-white">
+                        {navSlot.time}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="glass-panel p-6">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                    Route guidance
+                  </p>
+                  <div className="mt-5 rounded-[1.8rem] border border-emerald-500/18 bg-emerald-500/8 p-5">
+                    <p className="text-lg font-black text-white">
+                      {navSlot.room}
+                    </p>
+                    <p className="mt-3 text-sm leading-7 text-slate-200">
+                      Proceed through the nearest main corridor, then follow the block signage toward the academic wing. Indoor routing can be attached here when live map support is enabled.
+                    </p>
+                  </div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="surface-card p-4">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                        Estimated walk
+                      </p>
+                      <p className="mt-2 text-sm font-black text-white">
+                        4 to 6 min
+                      </p>
+                    </div>
+                    <div className="surface-card p-4">
+                      <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                        Status
+                      </p>
+                      <p className="mt-2 text-sm font-black text-white">
+                        {navSlot.status}
+                      </p>
+                    </div>
+                  </div>
+                  <button type="button" className="btn-primary mt-6 w-full justify-center">
+                    <Navigation size={14} />
+                    Start guided route
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </DashboardLayout>
   );
-};
-
-export default Timetable;
+}

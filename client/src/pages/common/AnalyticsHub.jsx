@@ -192,59 +192,59 @@ export default function AnalyticsHub() {
   ];
 
   return (
-    <DashboardLayout title="Analytics Matrix" role={role}>
-      <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+    <DashboardLayout title="Strategic Analytics Hub" role={role}>
+      <div className="mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <Activity size={28} className="text-rose-500" />
-            Live Analytics Hub
+          <h2 className="text-5xl font-black text-white tracking-tighter flex items-center gap-4 italic uppercase leading-none">
+            <Activity size={40} className="text-rose-600" />
+            Strategic Analytics Hub
           </h2>
-          <p className="text-slate-400 font-medium mt-1">
-            Real-time institutional telemetry for <span className="text-white font-black">{role}</span> identity.
+          <p className="text-slate-400 font-bold mt-4 max-w-2xl italic text-lg leading-relaxed uppercase tracking-widest text-[10px]">
+             Real-time strategic metrics for <span className="text-white font-black">{role}</span> identity.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="px-4 py-2 bg-white/5 rounded-xl border border-white/10 text-[10px] text-slate-400 font-mono flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Live · Updated {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          <div className="px-5 py-3 bg-white/[0.02] rounded-2xl border border-white/10 text-[10px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-3 italic">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
+            Live · {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </div>
-          <button className="px-4 py-2 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500/20 transition-colors">
-            <Download size={12} /> Export CSV
+          <button className="px-6 py-3 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-indigo-500/20 transition-all italic shadow-xl">
+            <Download size={14} /> Export Strategic CSV
           </button>
         </div>
       </div>
 
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
         {config.kpis.map((kpi, i) => <KPICard key={kpi.label} kpi={kpi} index={i} />)}
       </div>
 
       {/* Lower Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <GlassCard>
-            <div className="p-5 border-b border-white/5 flex items-center justify-between">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                <Brain size={14} className="text-purple-400" /> AI Insight Feed
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.3em] text-slate-500 flex items-center gap-2 italic">
+                <Brain size={16} className="text-purple-500" /> Strategic Intelligence Feed
               </h3>
-              <ArrowUpRight size={16} className="text-slate-600" />
+              <ArrowUpRight size={18} className="text-slate-700" />
             </div>
-            <div className="p-5 space-y-4">
+            <div className="p-6 space-y-4">
               {[
                 { insight: `${role === 'STUDENT' ? 'Attendance trending up +4% this semester' : role === 'FACULTY' ? 'Your class avg is 8% above department median' : 'Department efficiency above college benchmark'}`, type: 'positive', icon: TrendingUp },
                 { insight: `${role === 'FINANCE' ? 'Fee defaulters reduced by 12 accounts this week' : 'System detected optimal peak usage: 10AM–12PM'}`, type: 'info', icon: Zap },
-                { insight: `AI models predict ${Math.floor(Math.random() * 15) + 85}% operational efficiency for next semester`, type: 'neutral', icon: Brain },
+                { insight: `Predictive models forecast ${Math.floor(Math.random() * 15) + 85}% operational efficiency for next semester`, type: 'neutral', icon: Brain },
               ].map((item, i) => (
                 <motion.div
                   key={i}
                   initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.15 }}
-                  className="flex items-start gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/5"
+                  className="flex items-start gap-4 p-5 rounded-3xl bg-white/[0.01] border border-white/5 hover:bg-white/[0.03] transition-all group"
                 >
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${item.type === 'positive' ? 'bg-emerald-500/10 text-emerald-400' : item.type === 'info' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-purple-500/10 text-purple-400'}`}>
-                    <item.icon size={14} />
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all ${item.type === 'positive' ? 'bg-emerald-500/10 text-emerald-400' : item.type === 'info' ? 'bg-indigo-500/10 text-indigo-400' : 'bg-purple-500/10 text-purple-400'}`}>
+                    <item.icon size={16} />
                   </div>
-                  <p className="text-sm text-slate-300 font-medium leading-relaxed">{item.insight}</p>
+                  <p className="text-sm text-slate-400 font-bold leading-relaxed italic uppercase tracking-wider mt-1">{item.insight}</p>
                 </motion.div>
               ))}
             </div>
@@ -253,7 +253,7 @@ export default function AnalyticsHub() {
 
         <div>
           <LiveBarGraph
-            title="Weekly Activity"
+            title="Weekly Activity Status"
             data={barData}
             color="#6366f1"
           />

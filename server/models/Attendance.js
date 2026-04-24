@@ -8,11 +8,17 @@ const attendanceSchema = new mongoose.Schema({
     },
     subjectId: {
         type: String,
-        required: true
+        required: true,
+        alias: "courseId"
     },
     present: {
         type: Boolean,
         default: true
+    },
+    status: {
+        type: String,
+        enum: ["present", "absent", "late", "medical"],
+        default: "present"
     },
     method: {
         type: String,
@@ -23,5 +29,18 @@ const attendanceSchema = new mongoose.Schema({
         longitude: Number
     }
 }, { timestamps: true });
+attendanceSchema.index({ studentId: 1, subjectId: 1 });
+attendanceSchema.index({ studentId: 1, createdAt: 1 });
+
+attendanceSchema.pre("validate", function syncStatusAndPresence() {
+    if (typeof this.status === "string" && this.status.trim()) {
+        this.status = this.status.trim().toLowerCase();
+        this.present = this.status !== "absent";
+        return;
+    }
+
+    this.status = this.present ? "present" : "absent";
+    return;
+});
 
 module.exports = mongoose.model("Attendance", attendanceSchema);

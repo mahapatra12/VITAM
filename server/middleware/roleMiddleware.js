@@ -1,24 +1,16 @@
-const jwt = require("jsonwebtoken");
+const authMiddleware = require("./authMiddleware");
 
 module.exports = (roles = []) => {
     return (req, res, next) => {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) return res.status(401).json({ msg: "No token, authorization denied" });
+        authMiddleware(req, res, () => {
+            const normalizedAllowedRoles = roles.map((role) => String(role || "").toLowerCase());
+            const currentRole = String(req.user?.role || "").toLowerCase();
 
-        const token = authHeader.split(" ")[1];
-        if (!token) return res.status(401).json({ msg: "Malformed token" });
-
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret");
-            req.user = decoded;
-
-            if (roles.length && !roles.includes(req.user.role)) {
+            if (normalizedAllowedRoles.length && !normalizedAllowedRoles.includes(currentRole)) {
                 return res.status(403).json({ msg: "Access denied: insufficient permissions" });
             }
 
             next();
-        } catch (err) {
-            res.status(401).json({ msg: "Token is not valid" });
-        }
+        });
     };
 };

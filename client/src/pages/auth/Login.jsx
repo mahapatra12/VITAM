@@ -1,355 +1,561 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { startTransition, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, Fingerprint, KeyRound, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, Fingerprint, Mail, Lock, Sparkles, ChevronDown, ChevronUp, Copy, CheckCheck, Eye, EyeOff, RefreshCw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import { getDashboardPathForUser } from '../../utils/routing';
+import {
+  clearPendingAuthFlow,
+  getPendingAuthFlow,
+  savePendingAuthFlow,
+  saveSecuritySetupFlow
+} from '../../utils/authFlowStorage';
+import { writeClipboardText } from '../../utils/clipboard';
+import { prefetchPostAuthRouteForUser, prefetchSetupRoute } from '../../utils/authRoutePrefetch';
+import {
+  cancelAuthJourneyWarmup,
+  scheduleAuthJourneyWarmup,
+  warmAuthJourney
+} from '../../utils/authJourneyWarmup';
+import { announceNavigationStart } from '../../utils/navigationSignals';
+import { scheduleHardRedirectFallback } from '../../utils/navigationFallback';
+import { getPasskeySupportState } from '../../utils/passkeySupport';
 
+const restoredFlow = getPendingAuthFlow();
+
+const buildPendingFlow = (payload = {}) => ({
+  userId: payload.userId || null,
+  pendingAuthToken: payload.pendingAuthToken || null,
+  qrCode: payload.qrCode || null,
+  totpSecret: payload.totpSecret || null,
+  totpLabel: payload.totpLabel || '',
+  hasBiometrics: Boolean(payload.hasBiometrics),
+  needsTotpEnrollment: Boolean(payload.needsTotpEnrollment),
+  step: payload.step || 1
+});
+
+const isExpiredFlowMessage = (message = '') =>
+  /(session expired|out of sync|restart sign-?in|verification step is out of sync)/i.test(String(message));
+
+const STEP_CONTENT = {
+  1: {
+    eyebrow: 'Step 1 - Identity',
+    title: 'Institution Account Login',
+    description: 'Use your official email and password assigned by the admin team.'
+  },
+  2: {
+    eyebrow: 'Step 2 - Verification',
+    title: 'Two-Factor Verification',
+    description: 'Enter the 6-digit code from your authenticator app to continue.'
+  },
+  3: {
+    eyebrow: 'Step 3 - Device Trust',
+    title: 'Passkey Verification',
+    description: 'Use a registered passkey on this trusted device to complete sign-in.'
+  }
+};
 
 const LoginPage = () => {
-  const [step, setStep]           = useState(1);
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [otp, setOtp]             = useState('');
-  const [error, setError]         = useState('');
-  const [userId, setUserId]       = useState(null);
-  const [qrCode, setQrCode]       = useState(null);          // base64 PNG
-  const [totpSecret, setTotpSecret] = useState(null);        // base32 for manual entry
-  const [totpLabel, setTotpLabel]   = useState('');
-  const [showSecret, setShowSecret] = useState(false);
-  const [hasBiometrics, setHasBiometrics] = useState(false);
-  const [copiedEmail, setCopiedEmail]     = useState('');
-  const [showPass, setShowPass]           = useState(false);
-  const [loading, setLoading]             = useState(false);
-
-  const { login, verify2FA, registerBiometrics, authenticateBiometrics, verifyBiometric: authVerifyBiometric } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+  const inFlightRef = useRef(false);
+  const initialWarmupRef = useRef(null);
+  const redirectFallbackRef = useRef(null);
 
+  const [step, setStep] = useState(restoredFlow?.step || 1);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState(location.state?.notice || '');
+  const [copied, setCopied] = useState(false);
+  const [userId, setUserId] = useState(restoredFlow?.userId || null);
+  const [pendingAuthToken, setPendingAuthToken] = useState(restoredFlow?.pendingAuthToken || null);
+  const [qrCode, setQrCode] = useState(restoredFlow?.qrCode || null);
+  const [totpSecret, setTotpSecret] = useState(restoredFlow?.totpSecret || null);
+  const [totpLabel, setTotpLabel] = useState(restoredFlow?.totpLabel || 'VITAM AI');
+  const [hasBiometrics, setHasBiometrics] = useState(Boolean(restoredFlow?.hasBiometrics));
+  const [needsTotpEnrollment, setNeedsTotpEnrollment] = useState(Boolean(restoredFlow?.needsTotpEnrollment));
+  const [showPass, setShowPass] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // ── Step 1: Password login (calls backend directly to get QR code back) ──
+  const {
+    user,
+    login,
+    verify2FA,
+    registerBiometrics,
+    authenticateBiometrics,
+    authStatus
+  } = useAuth();
+
+  const navigateToUserDashboard = (nextUser) => {
+    if (!nextUser) {
+      return;
+    }
+
+    const targetPath = getDashboardPathForUser(nextUser);
+    redirectFallbackRef.current?.();
+    announceNavigationStart({ path: targetPath, source: 'auth-login' });
+    void prefetchPostAuthRouteForUser(nextUser);
+    redirectFallbackRef.current = scheduleHardRedirectFallback(targetPath);
+    startTransition(() => {
+      navigate(targetPath, { replace: true });
+    });
+  };
+
+  const currentStep = STEP_CONTENT[step] || STEP_CONTENT[1];
+  const normalizedEmail = email.trim().toLowerCase();
+  const isEmailReady = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+  const isPasswordReady = password.trim().length >= 6;
+  const passkeySupport = getPasskeySupportState(authStatus);
+
+  useEffect(() => {
+    if (location.state?.notice) {
+      setNotice(location.state.notice);
+    }
+  }, [location.state]);
+
+  useEffect(() => {
+    initialWarmupRef.current = scheduleAuthJourneyWarmup();
+
+    return () => {
+      cancelAuthJourneyWarmup(initialWarmupRef.current);
+      initialWarmupRef.current = null;
+      redirectFallbackRef.current?.();
+      redirectFallbackRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    clearPendingAuthFlow();
+    navigateToUserDashboard(user);
+  }, [navigate, user]);
+
+  useEffect(() => {
+    if (step === 1) {
+      return undefined;
+    }
+
+    const warmupHandle = scheduleAuthJourneyWarmup({
+      advancedSecurity: true,
+      passkeys: step >= 2
+    });
+
+    if (step >= 3) {
+      void warmAuthJourney({
+        advancedSecurity: true,
+        passkeys: true
+      });
+    }
+
+    return () => {
+      cancelAuthJourneyWarmup(warmupHandle);
+    };
+  }, [step]);
+
+  const handleAuthIntent = () => {
+    cancelAuthJourneyWarmup(initialWarmupRef.current);
+    initialWarmupRef.current = null;
+    scheduleAuthJourneyWarmup({
+      advancedSecurity: step > 1,
+      passkeys: step >= 2
+    });
+  };
+
+  const persistPendingFlow = (overrides = {}) => {
+    const nextFlow = buildPendingFlow({
+      userId,
+      pendingAuthToken,
+      qrCode,
+      totpSecret,
+      totpLabel,
+      hasBiometrics,
+      needsTotpEnrollment,
+      step,
+      ...overrides
+    });
+
+    if (nextFlow.userId && nextFlow.pendingAuthToken && nextFlow.step > 1) {
+      savePendingAuthFlow(nextFlow);
+    } else {
+      clearPendingAuthFlow();
+    }
+  };
+
+  const resetPendingState = () => {
+    setUserId(null);
+    setPendingAuthToken(null);
+    setQrCode(null);
+    setTotpSecret(null);
+    setTotpLabel('VITAM AI');
+    setHasBiometrics(false);
+    setNeedsTotpEnrollment(false);
+    setOtp('');
+    clearPendingAuthFlow();
+  };
+
+  const handleRestart = () => {
+    setStep(1);
+    setError('');
+    setNotice('');
+    setLoading(false);
+    resetPendingState();
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    if (inFlightRef.current || loading) return;
+
+    inFlightRef.current = true;
     setLoading(true);
-    try {
-      const data = await login(email, password);
-
-      // Store IDs and data regardless of step
-      setUserId(data.userId);
-      setQrCode(data.qrCode || null);
-      setTotpSecret(data.totpSecret || null);
-      setTotpLabel(data.totpLabel || 'VITAM AI');
-      setHasBiometrics(data.hasBiometrics);
-
-      if (data.isFirstLogin) {
-        // Redirect to full-screen security setup
-        navigate('/setup', {
-          state: {
-            userId: data.userId,
-            qrCode: data.qrCode,
-            totpSecret: data.totpSecret,
-            totpLabel: data.totpLabel
-          }
-        });
-      } else if (data.requires2FA) {
-        setStep(2);
-      } else if (data.requiresBiometric) {
-        setStep(3);
-      }
-    } catch (err) {
-      setError(err.message || 'Invalid credentials. Try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // ── Step 2: TOTP verification (real Google Authenticator code) ──
-  const handle2FA = async (e) => {
-    e.preventDefault();
     setError('');
-    setLoading(true);
+    setNotice('');
+
     try {
-      const { data } = await api.post('/auth/verify-2fa', {
-        userId,
-        token: otp.trim(),
-      });
+      const emailForAuth = normalizedEmail;
+      setEmail(emailForAuth);
+      const data = await login(emailForAuth, password);
+
+      const nextState = {
+        userId: data.userId || null,
+        pendingAuthToken: data.pendingAuthToken || null,
+        qrCode: data.qrCode || null,
+        totpSecret: data.totpSecret || null,
+        totpLabel: data.totpLabel || 'VITAM AI',
+        hasBiometrics: Boolean(data.hasBiometrics),
+        needsTotpEnrollment: Boolean(data.needsTotpEnrollment)
+      };
+
+      setUserId(nextState.userId);
+      setPendingAuthToken(nextState.pendingAuthToken);
+      setQrCode(nextState.qrCode);
+      setTotpSecret(nextState.totpSecret);
+      setTotpLabel(nextState.totpLabel);
+      setHasBiometrics(nextState.hasBiometrics);
+      setNeedsTotpEnrollment(nextState.needsTotpEnrollment);
+
       if (data.token && data.user) {
-        navigate(`/${data.user.role.toLowerCase()}/dashboard`);
+        resetPendingState();
+        navigateToUserDashboard(data.user);
         return;
       }
-      if (data.requiresBiometric) {
-        setHasBiometrics(data.hasBiometrics);
-        setStep(3);
+
+      if (data.isFirstLogin) {
+        const setupFlow = {
+          userId: nextState.userId,
+          pendingAuthToken: nextState.pendingAuthToken,
+          qrCode: nextState.qrCode,
+          totpSecret: nextState.totpSecret,
+          totpLabel: nextState.totpLabel,
+          step: 1
+        };
+
+        clearPendingAuthFlow();
+        saveSecuritySetupFlow(setupFlow);
+        void prefetchSetupRoute();
+        navigate('/setup', { replace: true, state: setupFlow });
+        return;
       }
+
+      const nextStep = data.requires2FA ? 2 : data.requiresBiometric ? 3 : 1;
+      setStep(nextStep);
+      persistPendingFlow({ ...nextState, step: nextStep });
     } catch (err) {
-      setError(err.response?.data?.msg || 'Invalid OTP code. Please check Google Authenticator.');
+      setError(err.message || 'Sign-in failed. Please retry.');
+    } finally {
+      inFlightRef.current = false;
+      setLoading(false);
+    }
+  };
+
+  const handle2FA = async (e) => {
+    e.preventDefault();
+    if (loading) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const data = await verify2FA({ userId, pendingAuthToken }, otp.trim());
+      const nextPendingAuth = data.pendingAuthToken || pendingAuthToken;
+      setPendingAuthToken(nextPendingAuth);
+
+      if (data.token && data.user) {
+        resetPendingState();
+        navigateToUserDashboard(data.user);
+        return;
+      }
+
+      const nextStep = data.requiresBiometric ? 3 : 1;
+      setHasBiometrics(Boolean(data.hasBiometrics));
+      setStep(nextStep);
+      persistPendingFlow({
+        pendingAuthToken: nextPendingAuth,
+        hasBiometrics: Boolean(data.hasBiometrics),
+        step: nextStep
+      });
+    } catch (err) {
+      const message = err.message || 'Invalid verification code.';
+      if (isExpiredFlowMessage(message)) {
+        resetPendingState();
+        setStep(1);
+        setOtp('');
+        setNotice('Secure verification session expired. Please sign in again.');
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Step 3: Biometric flows ──
-  const handleRegisterBiometricFlow = async () => {
+  const handleBiometricFlow = async () => {
+    if (loading) return;
+
     setLoading(true);
     setError('');
     try {
-      const verified = await registerBiometrics(userId);
-      if (verified) {
-        // After registration, proceed to dashboard
-        const user = await authVerifyBiometric(userId, 'biometric-registered');
-        navigate(`/${user.role.toLowerCase()}/dashboard`);
+      await warmAuthJourney({
+        advancedSecurity: true,
+        passkeys: true
+      });
+
+      if (hasBiometrics) {
+        const signedInUser = await authenticateBiometrics({ userId, pendingAuthToken });
+        resetPendingState();
+        navigateToUserDashboard(signedInUser);
+        return;
+      }
+
+      const result = await registerBiometrics({ userId, pendingAuthToken }, 'Primary Device', { completeLogin: true });
+      if (result?.token && result?.user) {
+        resetPendingState();
+        navigateToUserDashboard(result.user);
       }
     } catch (err) {
-      setError(err.message || 'Biometric registration failed. Your device might not support WebAuthn or it was cancelled.');
+      const message = err.message || 'Passkey verification failed.';
+      if (isExpiredFlowMessage(message)) {
+        resetPendingState();
+        setStep(1);
+        setNotice('Secure verification session expired. Please sign in again.');
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAuthBiometricFlow = async () => {
-    setLoading(true);
-    setError('');
+
+  const handleCopySecret = async () => {
+    if (!totpSecret) return;
     try {
-      const user = await authenticateBiometrics(userId);
-      navigate(`/${user.role.toLowerCase()}/dashboard`);
+      await writeClipboardText(totpSecret);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
     } catch (err) {
-      setError('Biometric authentication failed. Please try again or use the simulation below.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
-  const copySecret = () => {
-    if (totpSecret) {
-      navigator.clipboard.writeText(totpSecret);
-      setCopiedEmail('secret');
-      setTimeout(() => setCopiedEmail(''), 2000);
+      setError(err?.message || 'Unable to copy authenticator secret.');
     }
   };
 
   return (
-    <div className="min-h-screen bg-[var(--apple-bg)] flex items-center justify-center p-6 transition-colors duration-500">
-      <div className="w-full max-w-md space-y-4">
-
-
-        {/* Main Auth Card */}
-        <div className="apple-card p-10 glass relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-appleBlue"></div>
-
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-appleBlue mx-auto mb-4 flex items-center justify-center shadow-xl shadow-appleBlue/30 overflow-hidden relative group">
-              <Sparkles className="text-white group-hover:scale-125 transition-transform" size={32} />
-              <motion.div 
-                   className="absolute inset-0 bg-white/20"
-                   initial={{ x: '-100%' }}
-                   animate={{ x: '100%' }}
-                   transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
-                />
+    <div className="appleBackground min-h-screen px-4 py-10 text-slate-100 sm:px-6">
+      <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-2">
+        <section className="glass-card hidden p-8 lg:block">
+          <p className="text-xs font-semibold uppercase tracking-wider text-blue-300">VITAM Access Platform</p>
+          <h1 className="mt-3 text-4xl font-extrabold text-white">Secure Login & Verification</h1>
+          <p className="mt-4 text-sm leading-7 text-slate-300">
+            Sign in with password, verify with authenticator code, and optionally use passkey authentication on trusted
+            devices.
+          </p>
+          <div className="mt-8 space-y-3">
+            <div className="flex items-center gap-3 rounded-lg border border-slate-700/70 bg-slate-900/60 p-3">
+              <ShieldCheck size={18} className="text-emerald-400" />
+              <p className="text-sm">Role-based access and secure session controls</p>
             </div>
-            <h1 className="text-3xl font-black tracking-tighter text-[var(--apple-text-primary)]">VITAM</h1>
-            <p className="text-[var(--apple-text-secondary)] mt-1 font-black uppercase tracking-widest text-[9px]">Sovereign Institutional Portal</p>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-700/70 bg-slate-900/60 p-3">
+              <KeyRound size={18} className="text-blue-300" />
+              <p className="text-sm">Authenticator app support for TOTP</p>
+            </div>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-700/70 bg-slate-900/60 p-3">
+              <Fingerprint size={18} className="text-indigo-300" />
+              <p className="text-sm">WebAuthn passkeys (up to 2 trusted devices)</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="glass-card p-6 sm:p-8">
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-blue-300">
+                {currentStep.eyebrow}
+              </p>
+              <h2 className="mt-1 text-2xl font-bold text-white">{currentStep.title}</h2>
+              <p className="mt-1 text-xs text-slate-400">{currentStep.description}</p>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+              <span className={`h-2 w-2 rounded-full ${step >= 1 ? 'bg-blue-400' : 'bg-slate-600'}`} />
+              <span className={`h-2 w-2 rounded-full ${step >= 2 ? 'bg-blue-400' : 'bg-slate-600'}`} />
+              <span className={`h-2 w-2 rounded-full ${step >= 3 ? 'bg-blue-400' : 'bg-slate-600'}`} />
+            </div>
           </div>
 
-          <AnimatePresence mode="wait">
+          {notice && (
+            <div className="mb-4 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+              {notice}
+            </div>
+          )}
 
-            {/* ── Step 1: Email + Password ── */}
-            {step === 1 && (
-              <motion.form
-                key="step1"
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                onSubmit={handleLogin}
-                className="space-y-5"
-              >
-                <div>
-                  <label className="block text-[10px] font-black text-[var(--apple-text-secondary)] uppercase tracking-widest mb-2">Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-3.5 text-[var(--apple-text-secondary)]" size={18} />
-                    <input
-                      type="email" value={email} onChange={e => setEmail(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 bg-[var(--apple-bg)]/50 border border-[var(--apple-border)] rounded-2xl focus:ring-2 focus:ring-appleBlue/20 outline-none text-[var(--apple-text-primary)] font-bold transition-all"
-                      placeholder="name@college.edu" required
-                    />
-                  </div>
+          {error && (
+            <div className="mb-4 rounded-lg border border-rose-400/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+              {error}
+            </div>
+          )}
+
+          {step === 1 && (
+            <form className="space-y-4" onSubmit={handleLogin}>
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-wide text-slate-300">Email</span>
+                <div className="relative">
+                  <Mail size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value.trimStart())}
+                    onFocus={handleAuthIntent}
+                    onBlur={() => setEmail((prev) => prev.trim().toLowerCase())}
+                    className="premium-input py-3 pl-10 pr-3"
+                    placeholder="name@vitam.edu"
+                    autoComplete="username"
+                    required
+                  />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-[var(--apple-text-secondary)] uppercase tracking-widest mb-2">Password Cluster</label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-3.5 text-[var(--apple-text-secondary)]" size={18} />
-                    <input
-                      type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}
-                      className="w-full pl-12 pr-12 py-3.5 bg-[var(--apple-bg)]/50 border border-[var(--apple-border)] rounded-2xl focus:ring-2 focus:ring-appleBlue/20 outline-none text-[var(--apple-text-primary)] font-bold transition-all"
-                      placeholder="••••••••" required
-                    />
-                    <button type="button" onClick={() => setShowPass(p => !p)} className="absolute right-4 top-3.5 text-[var(--apple-text-secondary)] hover:text-appleBlue transition-colors">
-                      {showPass ? <EyeOff size={18}/> : <Eye size={18}/>}
-                    </button>
-                  </div>
-                </div>
-                {error && <p className="text-red-500 text-xs font-medium">{error}</p>}
-                <button type="submit" disabled={loading} className="w-full apple-btn-primary py-3 disabled:opacity-60">
-                  {loading ? 'Signing in…' : 'Sign In →'}
-                </button>
-              </motion.form>
-            )}
+              </label>
 
-            {/* ── Step 2: TOTP — QR code + 6-digit input ── */}
-            {step === 2 && (
-              <motion.div
-                key="step2"
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                className="space-y-5"
-              >
-                <div className="text-center">
-                  <Shield className="mx-auto text-appleBlue mb-2" size={36} />
-                  <h3 className="text-xl font-bold text-slate-800">Two-Factor Authentication</h3>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Scan the QR code with <strong>Google Authenticator</strong> or <strong>Apple Passwords</strong>, then enter the 6-digit code.
-                  </p>
-                </div>
-
-                {/* QR Code */}
-                {qrCode && (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="p-3 bg-white border-2 border-slate-100 rounded-2xl shadow-sm inline-block">
-                      <img src={qrCode} alt="Scan with Google Authenticator" className="w-44 h-44" />
-                    </div>
-                    <p className="text-[10px] text-slate-400 font-medium text-center">
-                      Scan once — future logins use the same code
-                    </p>
-
-                    {/* Manual entry section */}
-                    <div className="w-full bg-slate-50 rounded-2xl p-3 text-center">
-                      <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider mb-2">Or enter key manually</p>
-                      <div className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2">
-                        <code className={`text-xs font-mono text-slate-700 flex-1 text-left break-all ${showSecret ? '' : 'blur-sm select-none'}`}>
-                          {totpSecret}
-                        </code>
-                        <div className="flex gap-1 shrink-0">
-                          <button onClick={() => setShowSecret(p => !p)} className="text-slate-400 hover:text-appleBlue p-1">
-                            {showSecret ? <EyeOff size={14}/> : <Eye size={14}/>}
-                          </button>
-                          <button onClick={copySecret} className="text-slate-400 hover:text-appleBlue p-1">
-                            {copiedEmail === 'secret' ? <CheckCheck size={14} className="text-green-500"/> : <Copy size={14}/>}
-                          </button>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-slate-400 mt-1">Account: <span className="font-semibold">{totpLabel}</span> · Time-based (TOTP)</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* OTP Input form */}
-                <form onSubmit={handle2FA} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-2 text-center">
-                      Enter the 6-digit code from your authenticator app
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      value={otp}
-                      onChange={e => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="w-full text-center text-3xl tracking-[0.5em] py-3 bg-slate-50 border-2 border-slate-200 focus:border-appleBlue rounded-apple focus:ring-2 focus:ring-appleBlue/20 outline-none font-bold"
-                      maxLength={6}
-                      placeholder="──────"
-                      required
-                      autoFocus
-                    />
-                  </div>
-                  {error && (
-                    <div className="flex items-center gap-2 text-red-500 text-xs font-medium bg-red-50 rounded-xl p-3">
-                      <RefreshCw size={12}/>
-                      <span>{error}</span>
-                    </div>
-                  )}
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-wide text-slate-300">Password</span>
+                <div className="relative">
+                  <Lock size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onFocus={handleAuthIntent}
+                    className="premium-input py-3 pl-10 pr-10"
+                    placeholder="Enter password"
+                    autoComplete="current-password"
+                    required
+                  />
                   <button
-                    type="submit"
-                    disabled={loading || otp.length < 6}
-                    className="w-full apple-btn-primary py-3 disabled:opacity-50"
+                    type="button"
+                    onClick={() => setShowPass((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-100"
                   >
-                    {loading ? 'Verifying…' : 'Verify Code →'}
+                    {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
-                </form>
+                </div>
+              </label>
 
-                <button onClick={() => { setStep(1); setError(''); setOtp(''); }} className="w-full text-xs text-slate-400 hover:text-appleBlue transition-colors text-center font-medium">
-                  ← Back to login
-                </button>
-              </motion.div>
-            )}
-
-            {/* ── Step 3: Biometric ── */}
-            {step === 3 && (
-              <motion.div
-                         className="space-y-12 text-center relative spatial-depth"
+              <button
+                type="submit"
+                disabled={loading || !isEmailReady || !isPasswordReady}
+                onMouseEnter={handleAuthIntent}
+                onFocus={handleAuthIntent}
+                className="btn-primary w-full justify-center py-3 disabled:opacity-60"
               >
-                {/* Sovereign Scanning Interface */}
-                <div className="relative mx-auto w-48 h-48 mb-12">
-                   <motion.div 
-                     animate={{ rotate: 360 }}
-                     transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                     className="absolute inset-0 border-2 border-dashed border-appleBlue/30 rounded-full"
-                   />
-                   <div className="absolute inset-4 crystal rounded-[50px] flex items-center justify-center holographic-gate overflow-hidden bg-white shadow-2xl">
-                      <Fingerprint className="w-20 h-20 text-appleBlue animate-pulse" />
-                      <div className="biometric-scan-line" />
-                      <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: [0, 0.4, 0] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="absolute inset-0 bg-appleBlue/10"
-                      />
-                   </div>
-                </div>
+                {loading ? 'Signing in...' : 'Sign In'}
+              </button>
+            </form>
+          )}
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-appleBlue italic">Sovereign Handshake Initiated</span>
+          {step === 2 && (
+            <form className="space-y-4" onSubmit={handle2FA}>
+              {needsTotpEnrollment && qrCode && (
+                <div className="rounded-lg border border-slate-700/70 bg-slate-900/70 p-3">
+                  <p className="mb-3 text-xs text-slate-300">Scan this QR with Google Authenticator or Apple Passwords.</p>
+                  <div className="flex justify-center">
+                    <img src={qrCode} alt="Authenticator QR" className="h-44 w-44 rounded bg-white p-2" />
                   </div>
-                  <h3 className="text-5xl font-black text-[var(--apple-text-primary)] tracking-tighter uppercase italic leading-none">
-                    Citadel <span className="text-appleBlue">ID</span>
-                  </h3>
-                  <p className="text-[9px] text-[var(--apple-text-secondary)] font-black tracking-[0.2em] uppercase max-w-[280px] mx-auto italic leading-relaxed">
-                    "Institutional Gateway 01: Multi-pass ocular and tactile biometric synthesis in progress."
-                  </p>
                 </div>
+              )}
 
-                {error && (
-                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="p-4 bg-red-50 border border-red-100 rounded-2xl">
-                    <p className="text-red-500 text-[10px] font-black uppercase tracking-widest">{error}</p>
-                  </motion.div>
+              {totpSecret && (
+                <div className="rounded-lg border border-slate-700/70 bg-slate-900/70 p-3 text-xs text-slate-300">
+                  <p className="mb-2">Manual key ({totpLabel || 'VITAM'}):</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded bg-slate-800 px-2 py-1 text-[11px]">{totpSecret}</code>
+                    <button type="button" onClick={handleCopySecret} className="btn-secondary px-3 py-1.5 text-xs">
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <label className="block space-y-1">
+                <span className="text-xs uppercase tracking-wide text-slate-300">Authenticator code</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                  className="premium-input py-3 text-center text-xl tracking-[0.35em]"
+                  placeholder="000000"
+                  autoFocus
+                  required
+                />
+              </label>
+
+              <button
+                type="submit"
+                disabled={loading || otp.trim().length !== 6}
+                onMouseEnter={handleAuthIntent}
+                onFocus={handleAuthIntent}
+                className="btn-primary w-full justify-center py-3 disabled:opacity-60"
+              >
+                {loading ? 'Verifying...' : 'Verify Code'}
+              </button>
+            </form>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-slate-700/70 bg-slate-900/70 p-4">
+                <p className="text-sm text-slate-200">
+                  {hasBiometrics
+                    ? 'Use your registered passkey to complete sign-in.'
+                    : 'No passkey is registered for this account yet. Register this device to continue.'}
+                </p>
+                <p className="mt-2 text-xs text-slate-400">
+                  WebAuthn: {authStatus?.webAuthn ? 'available' : 'unavailable'}.
+                </p>
+                {!passkeySupport.available && passkeySupport.reason && (
+                  <p className="mt-3 text-xs text-amber-300">{passkeySupport.reason}</p>
                 )}
+              </div>
 
-                <div className="flex flex-col gap-6">
-                  {hasBiometrics ? (
-                    <button
-                      onClick={handleAuthBiometricFlow}
-                      disabled={loading}
-                      className="w-full py-6 bg-slate-900 text-white rounded-[35px] font-black uppercase tracking-[0.4em] text-[10px] shadow-[0_30px_60px_rgba(0,0,0,0.3)] hover:bg-black transition-all disabled:opacity-50"
-                    >
-                      {loading ? '🔓 SYNCHRONIZING...' : 'ESTABLISH SOVEREIGN LINK'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleRegisterBiometricFlow}
-                      disabled={loading}
-                      className="w-full py-6 bg-appleBlue text-white rounded-[35px] font-black uppercase tracking-[0.4em] text-[10px] shadow-[0_30px_60px_rgba(0,113,227,0.3)] hover:brightness-110 transition-all disabled:opacity-50"
-                    >
-                      {loading ? '🔐 ENCRYPTING NODE...' : 'INITIALIZE SOVEREIGN KEY'}
-                    </button>
-                  )}
+              <div className="grid gap-3">
+                <button
+                  type="button"
+                  onClick={handleBiometricFlow}
+                  disabled={loading || !passkeySupport.available}
+                  onMouseEnter={handleAuthIntent}
+                  onFocus={handleAuthIntent}
+                  className="btn-primary w-full justify-center py-3 disabled:opacity-60"
+                >
+                  <Fingerprint size={16} />
+                  {loading ? 'Waiting for passkey...' : hasBiometrics ? 'Use Passkey' : 'Register Passkey'}
+                </button>
+              </div>
+            </div>
+          )}
 
-                </div>
-              </motion.div>
-            )}
-
-          </AnimatePresence>
-
-          <p className="text-center text-[9px] font-black uppercase tracking-[0.4em] text-[var(--apple-text-secondary)] mt-8 opacity-40">
-            Secure Session managed by VITAM Sovereign Shield
-          </p>
-        </div>
+          {step > 1 && (
+            <div className="mt-6 text-center">
+              <button type="button" onClick={handleRestart} className="text-sm text-slate-300 hover:text-white">
+                Restart login
+              </button>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

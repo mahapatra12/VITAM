@@ -52,11 +52,11 @@ export default function AlumniJobs() {
   return (
     <DashboardLayout title="Alumni Job Board" role={user?.role || 'ALUMNI'}>
       {/* Header */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-black text-white flex items-center gap-3">
-          <Briefcase size={28} className="text-indigo-500" /> Alumni Career Portal
+      <div className="mb-10">
+        <h2 className="text-5xl font-black text-white flex items-center gap-4 italic uppercase tracking-tighter">
+          <Briefcase size={40} className="text-indigo-600" /> Strategic <span className="text-indigo-600">Opportunity Hub</span>
         </h2>
-        <p className="text-slate-400 mt-1">Curated opportunities from the VITAM corporate network with alumni referral matching.</p>
+        <p className="text-slate-400 font-bold mt-4 max-w-2xl italic text-lg leading-relaxed">Curated opportunities from the VITAM corporate network with alumni referral matching.</p>
       </div>
 
       {/* Stats bar */}

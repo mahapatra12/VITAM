@@ -1,47 +1,66 @@
-name: VITAM Enterprise CI/CD Pipeline
+name: VITAM Production QA Gate
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  build-and-test:
+  qa-gate:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [18.x]
-        role: ['STUDENT', 'FACULTY', 'HOD', 'ADMIN', 'CHAIRMAN', 'PARENT', 'ALUMNI', 'FINANCE']
-
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Initialize Campus OS on Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+    - uses: actions/checkout@v4
+
+    - name: Setup Node
+      uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        
-    - name: Construct Global Backend Architecture
-      run: |
-        cd server
-        npm ci
-        
-    - name: Compile 3D Frontend UI Matrix
-      run: |
-        cd client
-        npm ci
-        npm run build
-        
-    - name: Execute Autonomous Role Unit Testing (${{ matrix.role }})
-      run: |
-        cd client
-        npm test
+        node-version: 22
+        cache: npm
+
+    - name: Install root dependencies
+      run: npm ci
+
+    - name: Install client dependencies
+      run: npm ci --prefix client
+
+    - name: Install server dependencies
+      run: npm ci --prefix server
+
+    - name: Install Playwright browser
+      run: npx playwright install --with-deps chromium
+
+    - name: Run release-grade QA suite
+      run: npm run qa:release
       env:
         CI: true
-        TEST_ROLE: ${{ matrix.role }}
+        NODE_ENV: development
+        JWT_SECRET: ci_dummy_secret
+        PORT: 5101
+        ORIGIN: http://127.0.0.1:5173
+        RP_ID: 127.0.0.1
+        E2E_BASE_URL: http://127.0.0.1:5173
+        VITE_API_URL: http://127.0.0.1:5101/api
+        ALLOW_IN_MEMORY_FALLBACK: true
+        PREFLIGHT_STRICT: true
+        QA_EXPECT_WEBAUTHN: true
+        QA_EXPECT_FACE_AUTH: true
+        QA_EXPECT_RP_ID: 127.0.0.1
+        QA_EXPECT_ORIGIN: http://127.0.0.1:5173
+        QA_EXPECT_DEVICE_CAP: 2
+        FACE_AUTH_THRESHOLD: 0.86
+        QA_MAX_LOGIN_MS: 2500
+        QA_MAX_AUTH_STEP_MS: 3000
+        SEED_ON_EMPTY: true
+        ALLOW_PROD_SEED: false
 
-    - name: Generate Coverage Report for College Board
-      run: npm run coverage
+    - name: Upload Playwright artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-artifacts
+        path: |
+          playwright-report
+          test-results
+        if-no-files-found: ignore

@@ -7,7 +7,6 @@ import {
 import { Users, AlertTriangle, UserCheck, TrendingUp, Search, GraduationCap } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
-import AIChat from '../../components/AIChat';
 
 const PERFORMANCE_ATTENDANCE = [
   { student: 'A. Sharma', marks: 88, attendance: 92 },
@@ -139,7 +138,6 @@ export default function FacultyStudents() {
         </GlassCard>
       </div>
 
-      <AIChat role="faculty" />
     </DashboardLayout>
   );
 }

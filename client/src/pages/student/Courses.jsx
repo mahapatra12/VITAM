@@ -1,186 +1,301 @@
-import { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BookOpen, 
-  PlayCircle, 
-  FileText, 
-  Clock, 
-  Award,
-  ChevronRight,
-  MoreVertical,
+import { useEffect, useMemo, useState } from 'react';
+import {
+  BookOpen,
   CheckCircle2,
-  X,
-  ExternalLink
+  Clock3,
+  ExternalLink,
+  FileText,
+  GraduationCap,
+  PlayCircle,
+  Sparkles
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { GlassCard } from '../../components/ui/DashboardComponents';
+import { GlassCard, StatCard } from '../../components/ui/DashboardComponents';
+import WorkspaceHero from '../../components/ui/WorkspaceHero';
+import ActionDialog from '../../components/ui/ActionDialog';
+import { useToast } from '../../components/ui/ToastSystem';
+import api from '../../utils/api';
+import {
+  DEFAULT_PORTAL_DATA,
+  buildCourseFocus,
+  buildCourseProgress,
+  buildCourseResources,
+  findCourseNextLecture,
+  normalizePortalData
+} from '../../utils/studentPortalData';
 
-const StudentCourses = () => {
-  const [resourceModal, setResourceModal] = useState({ show: false, course: null });
-  const [continueModal, setContinueModal] = useState({ show: false, course: null });
+export default function StudentCourses() {
+  const { push } = useToast();
+  const [resourceModal, setResourceModal] = useState(null);
+  const [continueModal, setContinueModal] = useState(null);
+  const [portalData, setPortalData] = useState(DEFAULT_PORTAL_DATA);
+  const [loading, setLoading] = useState(true);
 
-  const resources = {
-    'AI-401': ['Lecture Slides Week 1–8 (PDF)', 'AIMA Textbook (Russell & Norvig)', 'Lab Manual: Search Algorithms', 'Assignment 3: Constraint Satisfaction', 'Past Papers 2023-2025'],
-    'CS-302': ['OS Concepts — Silberschatz PDF', 'Lab Practice: Process Scheduling', 'Video: Memory Management (2 hrs)', 'Quiz Archive: Chapters 1–6', 'Shell Scripting Guide'],
-    'AI-402': ['Deep Learning — Goodfellow PDF', 'PyTorch Tutorial Series (8 hrs)', 'Lab 3: CNN Implementation', 'Transformer Architecture Notes', 'Research Papers: Attention Is All You Need'],
-    'CS-201': ['CLRS Textbook PDF', 'LeetCode Practice Set (100 problems)', 'Video: Tree Traversal Animations', 'Sorting Algorithm Cheatsheet', 'Final Revision Guide'],
+  useEffect(() => {
+    const loadPortalData = async () => {
+      try {
+        const { data } = await api.get('/student/portal', {
+          cache: {
+            maxAge: 30000,
+            staleWhileRevalidate: true,
+            revalidateAfter: 12000,
+            persist: true,
+            onUpdate: (response) => setPortalData(normalizePortalData(response?.data))
+          }
+        });
+        setPortalData(normalizePortalData(data));
+      } catch {
+        setPortalData(DEFAULT_PORTAL_DATA);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPortalData();
+  }, []);
+
+  const courses = useMemo(() => portalData.courses.map((course) => ({
+    ...course,
+    progress: buildCourseProgress(course),
+    nextLecture: findCourseNextLecture(course, portalData.timetable),
+    focus: buildCourseFocus(course),
+    resources: buildCourseResources(course)
+  })), [portalData.courses, portalData.timetable]);
+
+  const completedCourses = useMemo(() => courses.filter((course) => course.progress >= 96).length, [courses]);
+  const avgProgress = useMemo(() => (
+    courses.length ? Math.round(courses.reduce((sum, course) => sum + course.progress, 0) / courses.length) : 0
+  ), [courses]);
+
+  const bestMomentumCourse = courses[0];
+  const attentionCourse = [...courses].sort((left, right) => left.progress - right.progress)[0];
+
+  const handleLaunch = () => {
+    push({
+      type: 'success',
+      title: 'Course session ready',
+      body: `The study flow for ${continueModal?.name || 'this course'} is ready for deeper content integration.`
+    });
+    setContinueModal(null);
   };
-  const courses = [
-    { code: "AI-401", name: "Artificial Intelligence", progress: 65, instructor: "Dr. Rajesh Kumar", nextLecture: "Tomorrow, 10:00 AM" },
-    { code: "CS-302", name: "Operating Systems", progress: 40, instructor: "Prof. Priya Sharma", nextLecture: "Today, 2:00 PM" },
-    { code: "AI-402", name: "Neural Networks", progress: 85, instructor: "Dr. Amit Singh", nextLecture: "Friday, 11:30 AM" },
-    { code: "CS-201", name: "Data Structures", progress: 100, instructor: "Ms. Neha Gupta", nextLecture: "Completed" },
-  ];
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Academic Journey" role="STUDENT">
+        <div className="flex min-h-[60vh] flex-col items-center justify-center gap-8">
+          <div className="h-16 w-16 animate-spin rounded-full border-4 border-blue-600/30 border-t-blue-600 shadow-2xl shadow-blue-600/20" />
+          <p className="animate-pulse text-[11px] font-black uppercase tracking-[0.6em] text-slate-500">
+            Course workspace synchronization
+          </p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout title="Academic Journey" role="STUDENT">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Active Curriculum</h2>
-          <p className="text-slate-500 font-medium tracking-tight">Managing 4 enrolled courses this semester</p>
-        </div>
-        <div className="flex gap-3">
-          <GlassCard className="!p-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-green-50 text-green-600 flex items-center justify-center font-black text-xs">A</div>
-            <span className="text-xs font-black text-slate-500 uppercase tracking-widest">Target GPA: 3.8</span>
-          </GlassCard>
-        </div>
+      <WorkspaceHero
+        eyebrow="Courses workspace"
+        title="Active curriculum management"
+        description="Monitor live course progress, open learning resources, and continue from the next recommended session through a cleaner academic workspace."
+        icon={GraduationCap}
+        badges={[
+          `${courses.length} enrolled courses`,
+          `${completedCourses} completed`,
+          `${avgProgress}% average progress`
+        ]}
+        stats={[
+          { label: 'Enrolled', value: String(courses.length) },
+          { label: 'Completed', value: String(completedCourses) },
+          { label: 'Average progress', value: `${avgProgress}%` },
+          { label: 'Current semester', value: portalData.profile.semesterLabel }
+        ]}
+        aside={(
+          <div className="glass-panel h-full p-6 md:p-7">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+              Semester focus
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-white">
+              Learning momentum is healthy
+            </h3>
+            <div className="mt-6 space-y-3">
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  Best momentum
+                </p>
+                <p className="mt-3 text-sm leading-6 text-slate-200">
+                  {bestMomentumCourse
+                    ? `${bestMomentumCourse.name} is your strongest-performing course right now with ${bestMomentumCourse.progress}% momentum.`
+                    : 'Your strongest course will appear here once the course matrix is synchronized.'}
+                </p>
+              </div>
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  Attention area
+                </p>
+                <p className="mt-3 text-sm leading-6 text-amber-300">
+                  {attentionCourse
+                    ? `${attentionCourse.name} still needs steady weekly progress to stay aligned with your semester target.`
+                    : 'No attention lane detected.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      />
+
+      <div className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
+        <StatCard title="Courses" value={String(courses.length)} icon={BookOpen} trend="Current load" />
+        <StatCard title="Completed" value={String(completedCourses)} icon={CheckCircle2} trend="Finished" />
+        <StatCard title="Average Progress" value={`${avgProgress}%`} icon={Sparkles} trend="Stable" />
+        <StatCard title="Target GPA" value={portalData.cgpa} icon={GraduationCap} trend="Current CGPA" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {courses.map((course, i) => (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {courses.map((course) => (
+          <GlassCard
             key={course.code}
+            title={course.name}
+            subtitle={`${course.code} / ${course.faculty}`}
+            icon={BookOpen}
           >
-            <GlassCard className="group hover:border-appleBlue/20 transition-all">
-              <div className="flex justify-between items-start mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center text-appleBlue border border-slate-100 group-hover:scale-110 transition-transform">
-                    <BookOpen size={28} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-0.5">{course.name}</h3>
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{course.instructor}</p>
-                  </div>
+            <div className="space-y-5">
+              <div>
+                <div className="mb-2 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
+                  <span>Progress</span>
+                  <span>{course.progress}%</span>
                 </div>
-                <button className="p-2 text-slate-300 hover:text-slate-500 transition-colors"><MoreVertical size={20} /></button>
-              </div>
-
-              <div className="mb-6">
-                <div className="flex justify-between text-xs font-bold uppercase tracking-widest mb-2">
-                  <span className="text-slate-400">Course Progress</span>
-                  <span className="text-appleBlue">{course.progress}%</span>
-                </div>
-                <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${course.progress}%` }}
-                    transition={{ duration: 1, delay: 0.5 }}
-                    className={`h-full rounded-full ${course.progress === 100 ? 'bg-green-500' : 'bg-appleBlue'}`}
+                <div className="h-3 overflow-hidden rounded-full border border-white/6 bg-slate-950/60">
+                  <div
+                    className={`h-full rounded-full ${course.progress >= 96 ? 'bg-emerald-400' : 'bg-gradient-to-r from-blue-400 via-blue-500 to-cyan-400'}`}
+                    style={{ width: `${course.progress}%` }}
                   />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mb-6">
-                 <div className="flex items-center gap-2 text-slate-500">
-                    <Clock size={14} className="text-appleBlue" />
-                    <span className="text-xs font-bold">{course.nextLecture}</span>
-                 </div>
-                 {course.progress === 100 && (
-                   <div className="flex items-center gap-1.5 text-green-600">
-                      <CheckCircle2 size={16} />
-                      <span className="text-xs font-black uppercase tracking-widest">Completed</span>
-                   </div>
-                 )}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="surface-card p-4">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                    Next lecture
+                  </p>
+                  <p className="mt-2 flex items-center gap-2 text-sm font-black text-white">
+                    <Clock3 size={14} className="text-blue-200" />
+                    {course.nextLecture}
+                  </p>
+                </div>
+                <div className="surface-card p-4">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                    Focus topic
+                  </p>
+                  <p className="mt-2 text-sm font-black text-white">
+                    {course.focus}
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                 <button onClick={() => setResourceModal({ show: true, course })} className="flex-1 py-2.5 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
-                    <FileText size={14} /> Resources
-                 </button>
-                 <button onClick={() => setContinueModal({ show: true, course })} className="flex-1 py-2.5 bg-appleBlue/5 text-appleBlue rounded-xl text-xs font-black uppercase tracking-widest hover:bg-appleBlue/10 transition-all flex items-center justify-center gap-2">
-                    <PlayCircle size={14} /> Continue
-                 </button>
+              {course.progress >= 96 ? (
+                <div className="rounded-[1.4rem] border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <p className="flex items-center gap-2 text-sm font-black text-emerald-200">
+                    <CheckCircle2 size={16} />
+                    Course completed successfully
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setResourceModal(course)}
+                  className="btn-secondary flex-1 justify-center"
+                >
+                  <FileText size={14} />
+                  View resources
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContinueModal(course)}
+                  className="btn-primary flex-1 justify-center"
+                >
+                  <PlayCircle size={14} />
+                  Continue course
+                </button>
               </div>
-            </GlassCard>
-          </motion.div>
+            </div>
+          </GlassCard>
         ))}
       </div>
 
-      {/* Resources Modal */}
-      <AnimatePresence>
-        {resourceModal.show && resourceModal.course && (
-          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
-            <motion.div initial={{scale:0.95,y:20}} animate={{scale:1,y:0}} exit={{scale:0.95}} className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative">
-              <button onClick={() => setResourceModal({show:false,course:null})} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700"><X size={18}/></button>
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-appleBlue/10 rounded-2xl flex items-center justify-center"><BookOpen size={20} className="text-appleBlue"/></div>
-                <div>
-                  <h3 className="font-black text-slate-900">{resourceModal.course.name}</h3>
-                  <p className="text-xs text-slate-400 font-bold">{resourceModal.course.code} Resources</p>
-                </div>
+      <ActionDialog
+        open={Boolean(resourceModal)}
+        tone="info"
+        title={resourceModal ? `${resourceModal.name} resources` : 'Course resources'}
+        description="Browse synchronized lecture materials, notes, and revision assets for this course."
+        confirmLabel="Close"
+        cancelLabel="Done"
+        onConfirm={() => setResourceModal(null)}
+        onClose={() => setResourceModal(null)}
+      >
+        <div className="space-y-3">
+          {(resourceModal?.resources || []).map((item) => (
+            <div key={item} className="surface-card flex items-center justify-between gap-4 p-4">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-white">
+                  {item}
+                </p>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                  Ready for connected content delivery
+                </p>
               </div>
-              <div className="space-y-2">
-                {(resources[resourceModal.course.code] || []).map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl hover:bg-blue-50 transition-all cursor-pointer group">
-                    <div className="flex items-center gap-3">
-                      <FileText size={14} className="text-appleBlue"/>
-                      <span className="text-sm font-medium text-slate-700">{item}</span>
-                    </div>
-                    <ExternalLink size={14} className="text-slate-300 group-hover:text-appleBlue transition-colors"/>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <button type="button" className="btn-secondary">
+                <ExternalLink size={14} />
+                Open
+              </button>
+            </div>
+          ))}
+        </div>
+      </ActionDialog>
 
-      {/* Continue Modal */}
-      <AnimatePresence>
-        {continueModal.show && continueModal.course && (
-          <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
-            <motion.div initial={{scale:0.95,y:20}} animate={{scale:1,y:0}} exit={{scale:0.95}} className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full relative">
-              <button onClick={() => setContinueModal({show:false,course:null})} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700"><X size={18}/></button>
-              <h3 className="font-black text-slate-900 text-lg mb-1">Continue Learning</h3>
-              <p className="text-xs font-bold text-appleBlue uppercase tracking-widest mb-6">{continueModal.course.name}</p>
-              <div className="mb-6">
-                <div className="flex justify-between text-xs font-bold mb-2">
-                  <span className="text-slate-400">Progress</span>
-                  <span className="text-appleBlue">{continueModal.course.progress}%</span>
-                </div>
-                <div className="h-3 bg-slate-100 rounded-full overflow-hidden">
-                  <motion.div initial={{width:0}} animate={{width:`${continueModal.course.progress}%`}} transition={{duration:0.8}} 
-                    className={`h-full rounded-full ${continueModal.course.progress===100?'bg-green-500':'bg-appleBlue'}`}/>
-                </div>
+      <ActionDialog
+        open={Boolean(continueModal)}
+        tone={continueModal?.progress >= 96 ? 'info' : 'default'}
+        title={continueModal?.progress >= 96 ? 'Course already completed' : `Continue ${continueModal?.name || 'course'}`}
+        description={continueModal?.progress >= 96
+          ? 'This course has already reached completion. You can still reopen materials for revision or reference.'
+          : 'Resume from the next recommended learning step and keep your weekly academic progress on track.'}
+        confirmLabel={continueModal?.progress >= 96 ? 'Close' : 'Launch session'}
+        cancelLabel="Back"
+        onConfirm={continueModal?.progress >= 96 ? () => setContinueModal(null) : handleLaunch}
+        onClose={() => setContinueModal(null)}
+      >
+        {continueModal ? (
+          <div className="space-y-4">
+            <div className="surface-card p-4">
+              <div className="mb-2 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                <span>Progress</span>
+                <span>{continueModal.progress}%</span>
               </div>
-              {continueModal.course.progress === 100 ? (
-                <div className="text-center py-6">
-                  <CheckCircle2 size={48} className="text-green-500 mx-auto mb-3"/>
-                  <p className="font-black text-slate-900 text-lg">Course Completed! 🎉</p>
-                  <p className="text-slate-500 text-sm mt-1">You've mastered {continueModal.course.name}</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="font-bold text-slate-700 text-sm">Next up:</p>
-                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                    <p className="font-bold text-appleBlue">Continue from last session</p>
-                    <p className="text-xs text-slate-500 mt-1">{continueModal.course.nextLecture}</p>
-                  </div>
-                  <button className="w-full apple-btn-primary py-3 flex items-center justify-center gap-2" onClick={() => setContinueModal({show:false,course:null})}>
-                    <PlayCircle size={18}/> Launch Course Session
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <div className="h-3 overflow-hidden rounded-full border border-white/6 bg-slate-950/60">
+                <div
+                  className={`h-full rounded-full ${continueModal.progress >= 96 ? 'bg-emerald-400' : 'bg-gradient-to-r from-blue-400 via-blue-500 to-cyan-400'}`}
+                  style={{ width: `${continueModal.progress}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="surface-card p-4">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                Recommended next step
+              </p>
+              <p className="mt-2 text-sm font-black text-white">
+                {continueModal.progress >= 96 ? 'Revision and retention review' : continueModal.focus}
+              </p>
+              <p className="mt-2 text-sm leading-7 text-slate-300">
+                {continueModal.nextLecture}
+              </p>
+            </div>
+          </div>
+        ) : null}
+      </ActionDialog>
     </DashboardLayout>
   );
-};
-
-export default StudentCourses;
+}

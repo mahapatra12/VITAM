@@ -1,3 +1,5 @@
+const { respondWithServerError } = require("../utils/respondWithServerError");
+
 exports.getFacultyStats = async (req, res) => {
     try {
         // Mock data fallback
@@ -8,6 +10,9 @@ exports.getFacultyStats = async (req, res) => {
             pendingGrading: '18'
         });
     } catch (err) {
-        res.status(500).json({ msg: "Server error" });
+        return respondWithServerError(req, res, err, {
+            logLabel: "Get Faculty Stats Error",
+            msg: "Unable to load faculty statistics right now"
+        });
     }
 };

@@ -7,7 +7,6 @@ import {
 import { Server, Activity, Users, Database, Shield, Zap } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
-import AIChat from '../../components/AIChat';
 
 const TRAFFIC_DATA = [
   { day: 'Mon', logins: 1200, dbQueries: 45000, latency: 12 },
@@ -112,7 +111,6 @@ export default function Analytics() {
         </div>
       </div>
 
-      <AIChat role="sysadmin" />
     </DashboardLayout>
   );
 }

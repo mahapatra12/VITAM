@@ -1,4 +1,5 @@
 const { tutorAgent } = require("../services/aiMultiAgentService");
+const { respondWithServerError } = require("../utils/respondWithServerError");
 
 exports.generateTimetable = async (req, res) => {
     try {
@@ -14,6 +15,9 @@ exports.generateTimetable = async (req, res) => {
         const timetable = await tutorAgent(prompt);
         res.json({ timetable });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        return respondWithServerError(req, res, err, {
+            logLabel: "Generate Timetable Error",
+            msg: "Unable to generate the timetable right now"
+        });
     }
 };

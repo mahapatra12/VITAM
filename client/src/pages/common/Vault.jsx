@@ -11,9 +11,9 @@ export default function Vault() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [hash, setHash] = useState('');
   const [documents, setDocuments] = useState([
-    { id: 1, name: "Institutional_Policy_v9.pdf", size: "2.4 MB", type: "PDF", date: "Today", hash: "0x8fa9...21c4", status: "Verified" },
+    { id: 1, name: "Institutional_Policy_v13.pdf", size: "2.4 MB", type: "PDF", date: "Today", hash: "0x8fa9...21c4", status: "Verified" },
     { id: 2, name: `${user?.role || 'User'}_Clearance_Form.docx`, size: "845 KB", type: "DOCX", date: "Yesterday", hash: "0x3bc1...99e2", status: "Encrypted" },
-    { id: 3, name: "Biometric_Handshake_Log.csv", size: "12 KB", type: "DATA", date: "Mar 18", hash: "0x11a0...44f0", status: "Verified" }
+    { id: 3, name: "Security_Sync_Log.csv", size: "12 KB", type: "DATA", date: "Mar 18", hash: "0x11a0...44f0", status: "Verified" }
   ]);
 
   const handleSimulatedUpload = () => {
@@ -51,11 +51,11 @@ export default function Vault() {
   return (
     <DashboardLayout title="Institutional Vault" role={user?.role || "STUDENT"}>
       <div className="mb-8">
-        <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+        <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3 italic">
           <FolderLock size={28} className="text-emerald-500" /> 
           Encrypted Asset Vault
         </h2>
-        <p className="text-slate-400 font-medium mt-1">AES-256 secure document storage mapped specifically for your institutional identity.</p>
+        <p className="text-slate-400 font-medium mt-1 italic uppercase tracking-widest text-[10px]">AES-256 secure document storage mapped specifically for your institutional identity.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -66,7 +66,7 @@ export default function Vault() {
             <div>
               <div className="p-4 border-b border-white/5 flex items-center gap-3">
                  <ShieldCheck size={18} className="text-emerald-400" />
-                 <h3 className="text-sm font-black text-white uppercase tracking-widest">End-to-End Upload</h3>
+                 <h3 className="text-sm font-black text-white uppercase tracking-widest italic">End-to-End Upload</h3>
               </div>
               
               <div className="p-6">
@@ -80,8 +80,8 @@ export default function Vault() {
                      <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-4 group-hover:scale-110 transition-transform">
                        <UploadCloud size={32} />
                      </div>
-                     <h4 className="text-white font-black text-lg mb-1">Select File</h4>
-                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center">Drag & Drop or click to browse<br/>PDF, DOCX, CSV (Max 50MB)</p>
+                     <h4 className="text-white font-black text-lg mb-1 italic">Select File</h4>
+                     <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest text-center italic">Drag & Drop or click to browse<br/>PDF, DOCX, CSV (Max 50MB)</p>
                   </motion.div>
                 ) : (
                   <div className="border border-white/10 bg-black/40 rounded-3xl p-8 flex flex-col items-center justify-center relative overflow-hidden">
@@ -100,18 +100,18 @@ export default function Vault() {
                      </div>
                      
                      <div className="text-center w-full">
-                       <p className="text-xs font-black text-white uppercase tracking-widest mb-2 flex items-center justify-center gap-2">
+                       <p className="text-xs font-black text-white uppercase tracking-widest mb-2 flex items-center justify-center gap-2 italic">
                          {uploadProgress < 100 ? ( <><RefreshCw size={12} className="animate-spin text-emerald-500"/> Encrypting Payload</>) : ( <><CheckCircle2 size={12} className="text-emerald-400" /> Generating Hash</>)}
                        </p>
-                       <div className="text-[10px] font-mono text-slate-500 break-all h-8">{hash || 'Awaiting block confirmation...'}</div>
+                       <div className="text-[10px] font-mono text-slate-500 break-all h-8 italic uppercase tracking-widest">{'Awaiting system confirmation...'}</div>
                      </div>
                   </div>
                 )}
               </div>
             </div>
             
-            <div className="p-4 bg-emerald-500/10 border-t border-emerald-500/20 text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2 rounded-b-3xl">
-              <Lock size={12} /> Military-Grade Sandbox Active
+            <div className="p-4 bg-emerald-500/10 border-t border-emerald-500/20 text-[10px] font-black text-emerald-400 uppercase tracking-widest flex items-center justify-center gap-2 rounded-b-3xl italic">
+              <Lock size={12} /> Institutional Secure Environment Active
             </div>
           </GlassCard>
         </div>
@@ -122,9 +122,9 @@ export default function Vault() {
             <div className="p-4 border-b border-white/5 flex items-center justify-between">
                <div className="flex items-center gap-3">
                  <Database size={18} className="text-blue-400" />
-                 <h3 className="text-sm font-black text-white uppercase tracking-widest">Decentralized Asset Ledger</h3>
+                 <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Internal Asset Directory</h3>
                </div>
-               <span className="text-[10px] bg-white/10 px-3 py-1 rounded-full text-white font-bold tracking-widest">{documents.length} Files</span>
+               <span className="text-[10px] bg-white/10 px-3 py-1 rounded-full text-white font-bold tracking-widest italic">{documents.length} Files</span>
             </div>
             
             <div className="p-2">
@@ -132,10 +132,10 @@ export default function Vault() {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-white/5">
-                      <th className="p-4 text-[10px] uppercase tracking-widest font-black text-slate-500 w-1/2">Asset Name</th>
-                      <th className="p-4 text-[10px] uppercase tracking-widest font-black text-slate-500">Size</th>
-                      <th className="p-4 text-[10px] uppercase tracking-widest font-black text-slate-500">Date/Hash</th>
-                      <th className="p-4 text-[10px] uppercase tracking-widest font-black text-slate-500">Status</th>
+                      <th className="p-4 text-[11px] uppercase tracking-[0.2em] font-black text-slate-600 w-1/2 italic">Asset Identification</th>
+                      <th className="p-4 text-[11px] uppercase tracking-[0.2em] font-black text-slate-600 italic">Scale</th>
+                      <th className="p-4 text-[11px] uppercase tracking-[0.2em] font-black text-slate-600 italic">Temporal/Sync</th>
+                      <th className="p-4 text-[11px] uppercase tracking-[0.2em] font-black text-slate-600 italic">Status</th>
                       <th className="p-4 w-10"></th>
                     </tr>
                   </thead>

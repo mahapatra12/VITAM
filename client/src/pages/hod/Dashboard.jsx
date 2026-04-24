@@ -1,19 +1,33 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Sparkles, Users, GraduationCap, BookOpen, Zap, X,
-  Brain, TrendingDown, AlertTriangle, CheckCircle2, Award, Target
+  Sparkles, Users, GraduationCap, BookOpen, X,
+  Brain, TrendingDown, AlertTriangle, Zap,
+  Search, Shield, Activity, BarChart3, Database, Globe
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Legend,
+  PieChart, Pie, Cell, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
   LineChart, Line
 } from 'recharts';
-import AIChat from '../../components/AIChat';
-import api, { MOCK_DATA } from '../../utils/api';
+import { MOCK_DATA } from '../../utils/api';
+import api from '../../utils/api';
+import SystemMirror from '../../components/ui/SystemMirror';
+import CommandFeed from '../../components/ui/CommandFeed';
+import { useHealth } from '../../context/HealthContext';
+import { useToast } from '../../components/ui/ToastSystem';
+import Telemetry from '../../utils/telemetry';
+import SystemStatusPanel from '../../components/ui/SystemStatusPanel';
+import SafeChart from '../../components/ui/SafeChart';
+
+const DEPARTMENT_KPI = [
+  { label: 'Curricular Alignment', value: 94, color: 'text-blue-500' },
+  { label: 'Resource Utilization', value: 82, color: 'text-indigo-500' },
+  { label: 'Student Satisfaction', value: 88, color: 'text-emerald-500' },
+  { label: 'Outcome Attainment', value: 76, color: 'text-amber-500' },
+];
 
 const COURSE_DATA = [
   { name: 'OS', avg: 3.4, students: 84, fail: 8 },
@@ -23,19 +37,10 @@ const COURSE_DATA = [
   { name: 'AI', avg: 3.5, students: 84, fail: 7 },
 ];
 
-const FACULTY_RADAR = [
-  { metric: 'Teaching', score: 88 },
-  { metric: 'Research', score: 72 },
-  { metric: 'Feedback', score: 91 },
-  { metric: 'Innovation', score: 65 },
-  { metric: 'Mentoring', score: 84 },
-];
-
 const DROPOUT_RISK = [
   { student: 'Suresh M.', roll: '20CS047', atd: 58, marks: 38, risk: 98 },
   { student: 'Kavya R.', roll: '20CS063', atd: 65, marks: 44, risk: 84 },
   { student: 'Deva P.', roll: '20CS091', atd: 69, marks: 49, risk: 71 },
-  { student: 'Ananya B.', roll: '20CS102', atd: 72, marks: 51, risk: 63 },
 ];
 
 const SEMESTER_TREND = [
@@ -48,24 +53,39 @@ const SEMESTER_TREND = [
 ];
 
 const PIE_DATA = [
-  { name: 'Core Courses', value: 40 },
-  { name: 'Electives', value: 30 },
-  { name: 'Lab/Practicals', value: 30 },
+  { name: 'Core', value: 40, color: '#3b82f6' },
+  { name: 'Electives', value: 30, color: '#10b981' },
+  { name: 'Lab', value: 30, color: '#8b5cf6' },
 ];
-const PIE_COLORS = ['#3b82f6', '#10b981', '#8b5cf6'];
-const TS = { contentStyle: { backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12 }, itemStyle: { color: '#e2e8f0' }, labelStyle: { color: '#94a3b8', fontWeight: 700 } };
 
-const HodDashboard = () => {
+const TS = { 
+  contentStyle: { backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, backdropFilter: 'blur(16px)' }, 
+  itemStyle: { color: '#e2e8f0', fontSize: 12, fontWeight: 700 }, 
+  labelStyle: { color: '#64748b', fontWeight: 800, textTransform: 'uppercase', fontSize: 10, letterSpacing: '0.1em' } 
+};
+
+export default function HodDashboard() {
+  const { health } = useHealth();
+  const { push } = useToast();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState(MOCK_DATA.hod);
+  const [stats] = useState(MOCK_DATA.hod);
   const [aiDropoutInsight, setAiDropoutInsight] = useState('');
 
+  const handleAcademicAction = (action) => {
+    Telemetry.info(`[Action] HOD initiated departmental directive: ${action}`);
+    push({
+      type: 'info',
+      title: 'Directive Issued',
+      body: `Departmental directive [${action}] has been synchronized with all faculty and student nodes.`
+    });
+  };
+
   useEffect(() => {
-    api.get('/hod/dashboard').then(({ data }) => setStats(data)).catch(() => {});
-    setTimeout(() => {
-      setAiDropoutInsight('HOD-AI: 4 students flagged for critical dropout risk using our multi-factor prediction model (attendance + marks + submission rate). Suresh M. has 98% dropout probability — immediate counseling session required. DS course has highest failure rate (14.3%) — consider adding supplementary tutorial slots before next internal exam.');
+    const insightTimer = setTimeout(() => {
+      setAiDropoutInsight('Departmental AI: Critical focus required on Data Structures (12 students at risk). Research output in AI Lab has increased by 14% this quarter.');
     }, 1600);
+    return () => clearTimeout(insightTimer);
   }, []);
 
   const analyzeDepartment = async () => {
@@ -74,152 +94,181 @@ const HodDashboard = () => {
       const { data } = await api.post('/ai/generate-report', { type: 'COURSE_DIFFICULTY', data: stats });
       setReport(data.report);
     } catch {
-      setReport(`🧠 AI Curriculum Strategy — CSE Department\n\nFaculty: ${stats.totalFaculty} | Students: ${stats.totalStudents} | Completion: ${stats.courseCompletion}\n\n📊 Difficulty Analysis:\n• DS: Highest failure rate (14.3%) → Add 2 extra tutorial sessions\n• DBMS: Best performance (3.3% fail) → Use as model for curriculum reform\n• AI: Moderate risk (8.3% fail) → Group study system recommended\n\n✅ Strategic Actions:\n1. Peer TA program for OS and DS immediately\n2. Mid-semester mock tests 2 weeks before internals\n3. Target: Push department pass rate from 87% → 93%`);
+      setReport(`📊 Departmental Strategy — Computer Science\n\nPriority Actions:\n1. Implement Peer Mentorship for Data Structures\n2. Schedule specialized preparatory modules\n3. Objective: Achieve 93% departmental pass rate.`);
     } finally { setLoading(false); }
   };
 
   return (
-    <DashboardLayout title="Department Intelligence" role="HOD">
-      <div className="mb-8 flex justify-between items-start flex-wrap gap-4">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-purple-400 mb-1">HOD Command Panel</p>
-          <h2 className="text-3xl font-black text-white tracking-tight">Department Intelligence</h2>
-          <p className="text-slate-400 font-medium mt-1">Faculty performance, curriculum analytics & AI dropout prediction</p>
+    <DashboardLayout title="Departmental Governance" role="HOD">
+      <div className="mb-12 flex flex-col xl:flex-row xl:items-center justify-between gap-10">
+        <div className="max-w-3xl">
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-4 mb-6"
+          >
+            <span className="px-4 py-1.5 bg-purple-500/10 text-purple-400 text-[11px] font-black uppercase tracking-[0.4em] rounded-full border border-purple-500/20 italic">Institutional Oversight Verified</span>
+            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" />
+            <span className="text-slate-500 font-black text-[11px] uppercase tracking-[0.4em] italic">Term Cycle: Synchronized</span>
+          </motion.div>
+          
+          <h2 className="text-7xl font-black text-white tracking-tighter mb-8 italic uppercase leading-none">Department <span className="text-purple-600">Governance Hub</span></h2>
+          <p className="text-slate-400 font-bold text-xl max-w-2xl leading-relaxed italic tracking-tight uppercase text-[10px] opacity-70">
+            STRATEGIC DEPARTMENTAL PERFORMANCE TRACKING, CURRICULUM OPTIMIZATION, AND STUDENT SUCCESS ANALYTICS.
+          </p>
+          
+          <div className="mt-12 flex gap-6">
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+              onClick={analyzeDepartment} disabled={loading}
+              className="flex items-center gap-4 px-10 py-5 rounded-[2rem] bg-purple-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 transition-all shadow-2xl shadow-purple-600/20 disabled:opacity-60 italic">
+              <Sparkles size={18} />
+              {loading ? 'Processing...' : 'Syllabus Compliance Review'}
+            </motion.button>
+          </div>
         </div>
-        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-          onClick={analyzeDepartment} disabled={loading}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-purple-600 text-white text-sm font-black hover:bg-purple-500 transition-all shadow-lg shadow-purple-500/20 disabled:opacity-60">
-          <Sparkles size={16} />
-          {loading ? 'Analyzing...' : 'AI Curriculum Report'}
-        </motion.button>
+
+        <div className="flex-shrink-0 flex items-center gap-4">
+           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Efficiency</span>
+              <span className="text-xl font-black text-white mt-1">94.2%</span>
+           </div>
+           <div className="p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col items-center">
+              <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Risk Index</span>
+              <span className="text-xl font-black text-rose-500 mt-1">Low</span>
+           </div>
+        </div>
       </div>
 
-      {/* AI Report Banner */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+        <StatCard title="Total Faculty" value={stats.totalFaculty || '24'} icon={Users} color="bg-blue-600" trend="Active" />
+        <StatCard title="Enrolled Students" value={stats.totalStudents || '840'} icon={GraduationCap} color="bg-emerald-600" trend="Stable" />
+        <StatCard title="Syllabus Progress" value={stats.courseCompletion || '92%'} icon={BookOpen} color="bg-purple-600" trend="+3%" />
+        <StatCard title="Priority Alerts" value="04" icon={AlertTriangle} color="bg-rose-600" trend="Managed" />
+      </div>
+
       <AnimatePresence>
         {report && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="mb-6 p-5 rounded-3xl border border-purple-500/20 bg-purple-500/5 relative">
-            <button onClick={() => setReport(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={16} /></button>
-            <div className="flex items-center gap-2 mb-3 text-purple-400">
-              <Brain size={18} /><span className="font-black text-sm uppercase tracking-wider">AI Curriculum Intelligence</span>
+          <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+            className="mb-10 p-8 rounded-3xl border border-purple-500/20 bg-purple-500/5 relative overflow-hidden group">
+            <button onClick={() => setReport(null)} className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 text-slate-500 hover:text-white transition-all"><X size={16} /></button>
+            <div className="flex items-center gap-3 mb-6 text-purple-400 font-black text-sm uppercase tracking-widest">
+              <Activity size={20} /> Academic Performance Analysis
             </div>
-            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{report}</p>
+            <p className="text-slate-300 text-base leading-relaxed whitespace-pre-wrap font-bold tracking-tight">
+              {report}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard title="Total Faculty" value={stats.totalFaculty || '24'} icon={Users} color="bg-blue-500" />
-        <StatCard title="Total Students" value={stats.totalStudents || '840'} icon={GraduationCap} color="bg-emerald-500" />
-        <StatCard title="Course Completion" value={stats.courseCompletion || '92%'} icon={BookOpen} color="bg-purple-500" trend="+3%" />
-        <StatCard title="Dropout Risk Count" value="4" icon={AlertTriangle} color="bg-red-500" />
-      </div>
-
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <GlassCard title="Semester Pass Rate & Avg GPA" subtitle="6-semester trend" className="lg:col-span-2">
-          <div className="h-[220px] mt-3">
-            <ResponsiveContainer width="100%" height="100%">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <GlassCard title="Academic Velocity" subtitle="Departmental pass rates and GPA trajectory" className="lg:col-span-2">
+          <div className="h-[300px] mt-6">
+            <SafeChart minHeight={300}>
               <LineChart data={SEMESTER_TREND}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="sem" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
-                <YAxis yAxisId="left" tick={{ fill: '#94a3b8', fontSize: 11 }} unit="%" domain={[80, 100]} />
-                <YAxis yAxisId="right" orientation="right" tick={{ fill: '#94a3b8', fontSize: 11 }} domain={[7, 9]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                <XAxis dataKey="sem" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis yAxisId="left" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
+                <YAxis yAxisId="right" orientation="right" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} domain={[7, 9]} />
                 <Tooltip {...TS} />
-                <Legend formatter={(v) => <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>{v}</span>} />
-                <Line yAxisId="left" type="monotone" dataKey="pass" name="Pass Rate %" stroke="#10b981" strokeWidth={2.5} dot={{ r: 4 }} />
-                <Line yAxisId="right" type="monotone" dataKey="avg" name="Avg GPA" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} strokeDasharray="5 3" />
+                <Legend iconType="circle" />
+                <Line yAxisId="left" type="monotone" dataKey="pass" name="Success Rate" stroke="#10b981" strokeWidth={4} dot={{ r: 5, fill: '#10b981' }} />
+                <Line yAxisId="right" type="monotone" dataKey="avg" name="Avg GPA" stroke="#8b5cf6" strokeWidth={4} dot={{ r: 5, fill: '#8b5cf6' }} strokeDasharray="8 4" />
               </LineChart>
-            </ResponsiveContainer>
+            </SafeChart>
           </div>
         </GlassCard>
 
-        <GlassCard title="Course Distribution" subtitle="Credit type breakdown">
-          <div className="h-[180px] mt-2">
-            <ResponsiveContainer width="100%" height="100%">
+        <GlassCard title="Resource Allocation" subtitle="Credit distribution by module type" className="flex flex-col items-center justify-center">
+          <div className="h-[220px] w-full mt-4">
+            <SafeChart minHeight={220}>
               <PieChart>
-                <Pie data={PIE_DATA} cx="50%" cy="50%" innerRadius={50} outerRadius={80} paddingAngle={3} dataKey="value">
-                  {PIE_DATA.map((e, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                <Pie data={PIE_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={8} dataKey="value" stroke="none">
+                  {PIE_DATA.map((e, index) => <Cell key={index} fill={e.color} />)}
                 </Pie>
-                <Tooltip {...TS} formatter={(v) => [`${v}%`]} />
+                <Tooltip {...TS} />
               </PieChart>
-            </ResponsiveContainer>
+            </SafeChart>
           </div>
-          {PIE_DATA.map((d, i) => (
-            <div key={d.name} className="flex items-center justify-between text-xs font-bold text-slate-400">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: PIE_COLORS[i] }} />
+          <div className="mt-8 grid grid-cols-2 gap-x-6 gap-y-3">
+            {PIE_DATA.map(d => (
+              <div key={d.name} className="flex items-center gap-2.5 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }} />
                 {d.name}
               </div>
-              <span>{d.value}%</span>
-            </div>
-          ))}
-        </GlassCard>
-      </div>
-
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <GlassCard title="Course Failure Rate Analysis" subtitle="Students failed per course this semester">
-          <div className="h-[200px] mt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={COURSE_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <Tooltip {...TS} />
-                <Bar dataKey="fail" name="Students Failed" fill="#ef4444" radius={[4, 4, 0, 0]}>
-                  {COURSE_DATA.map((entry, index) => (
-                    <Cell key={index} fill={entry.fail > 10 ? '#ef4444' : entry.fail > 5 ? '#f59e0b' : '#10b981'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
-
-        <GlassCard title="Faculty Evaluation Radar" subtitle="Department average across 5 performance dimensions">
-          <div className="h-[210px] mt-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={FACULTY_RADAR} outerRadius={75}>
-                <PolarGrid stroke="#1e293b" />
-                <PolarAngleAxis dataKey="metric" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
-                <PolarRadiusAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 9 }} />
-                <Radar dataKey="score" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.25} strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} />
-                <Tooltip {...TS} formatter={(v) => [`${v}/100`]} />
-              </RadarChart>
-            </ResponsiveContainer>
+            ))}
           </div>
         </GlassCard>
       </div>
 
-      {/* Dropout Risk Table */}
-      <GlassCard title="AI Dropout Early Warning System" subtitle="Students with highest computed dropout probability" icon={TrendingDown}>
-        <div className="mt-3 space-y-2">
-          {DROPOUT_RISK.map((s) => (
-            <div key={s.student} className="flex items-center gap-3 p-3 bg-slate-800/50 rounded-xl">
-              <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-black text-sm ${s.risk >= 90 ? 'bg-red-500/20 text-red-400' : s.risk >= 75 ? 'bg-amber-500/20 text-amber-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                {s.risk}%
-              </div>
-              <div className="flex-1">
-                <p className="text-white font-black text-sm">{s.student} <span className="text-slate-500 font-normal text-xs">({s.roll})</span></p>
-                <p className="text-slate-400 text-xs">Attendance: {s.atd}% · Internal: {s.marks}/100</p>
-              </div>
-              <div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${s.risk >= 90 ? 'bg-red-500' : s.risk >= 75 ? 'bg-amber-500' : 'bg-blue-500'}`}
-                  style={{ width: `${s.risk}%` }} />
-              </div>
-            </div>
-          ))}
-          <div className="p-3 bg-slate-900/50 rounded-xl border border-red-500/10 mt-2">
-            <p className="text-xs text-red-400/80 italic">{aiDropoutInsight || 'AI scanning dropout patterns...'}</p>
-          </div>
-        </div>
-      </GlassCard>
+      <div className="mb-14">
+         <GlassCard title="Institutional Service Mirror" subtitle="High-fidelity simulation of departmental resources and academic health" className="overflow-hidden bg-[#0c0c0c]/40 border-white/5 rounded-[40px] p-0">
+            <SystemMirror department="COMPUTER SCIENCE" />
+         </GlassCard>
+      </div>
 
-      <AIChat role="hod" />
+      <div className="grid grid-cols-1 lg:grid-cols-1 gap-8 mb-8">
+        <GlassCard title="Early Warning Metrics" subtitle="Student performance risks and intervention points" icon={TrendingDown}>
+          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-10">
+            <div className="space-y-4">
+              {DROPOUT_RISK.map((s) => (
+                <div key={s.student} className="p-5 bg-white/[0.02] border border-white/5 rounded-2xl hover:bg-white/[0.04] transition-all group">
+                  <div className="flex items-center gap-6">
+                    <div className={`w-14 h-14 rounded-xl flex items-center justify-center font-black text-lg ${s.risk >= 90 ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-500'} border border-white/5`}>
+                      {s.risk}%
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-bold text-base">{s.student}</p>
+                      <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">{s.roll} · {s.atd}% Attendance</p>
+                    </div>
+                    <div className="w-32 h-1.5 bg-slate-900 rounded-full overflow-hidden">
+                      <motion.div initial={{ width: 0 }} animate={{ width: `${s.risk}%` }} transition={{ duration: 1.5 }}
+                        className={`h-full rounded-full ${s.risk >= 90 ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-8 bg-blue-600/5 border border-blue-500/20 rounded-3xl relative overflow-hidden group">
+               <div className="relative z-10">
+                  <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-4">Strategic Intervention</h4>
+                  <p className="text-xl font-bold text-white italic leading-relaxed mb-8">"{aiDropoutInsight}"</p>
+                  <button className="px-8 py-4 bg-blue-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20">Authorize Action Plan</button>
+               </div>
+               <Database className="absolute bottom-0 right-0 p-8 opacity-5" size={120} />
+            </div>
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <GlassCard title="Academic Success Panel" subtitle="Quality assurance and departmental controls" className="lg:col-span-2 relative overflow-hidden group">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            {[
+              { id: 'SYNC', label: 'Synchronize Curriculum', desc: 'Align faculty progression', color: 'bg-purple-600', icon: Zap },
+              { id: 'SUPPRESS', label: 'Allocate Support Resources', desc: 'Deploy tailored mentorship', color: 'bg-blue-600', icon: GraduationCap },
+              { id: 'AUDIT', label: 'Syllabus Compliance Review', desc: 'Audit course coverage metrics', color: 'bg-emerald-600', icon: Shield },
+              { id: 'PEER', label: 'Peer Learning Networks', desc: 'Enable collaborative study groups', color: 'bg-slate-800', icon: Users },
+            ].map((btn) => (
+              <button 
+                key={btn.id}
+                onClick={() => handleAcademicAction(btn.label)}
+                className="flex items-center gap-5 p-5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/20 transition-all text-left group/btn"
+              >
+                <div className={`p-3.5 rounded-xl ${btn.color} text-white shadow-lg transition-transform group-hover/btn:scale-110`}>
+                  <btn.icon size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white uppercase tracking-tight">{btn.label}</p>
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-1 italic">{btn.desc}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </GlassCard>
+
+        <CommandFeed className="h-full" limit={6} filter={['INFO', 'ADVISORY']} />
+      </div>
     </DashboardLayout>
   );
-};
-
-export default HodDashboard;
+}

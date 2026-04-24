@@ -2,18 +2,18 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, Sparkles, Cpu, ShieldCheck, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-const NexusLayout = ({ children, title = "Sovereign Nexus" }) => {
+const NexusLayout = ({ children, title = "Institutional Nexus" }) => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-[#020202] text-white overflow-hidden relative selection:bg-appleBlue/30">
       
-      {/* Background Sovereign Infrastructure */}
+      {/* Background Infrastructure */}
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(0,113,227,0.05)_0%,transparent_70%)]" />
         <div className="absolute top-0 left-0 w-full h-full opacity-20 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
         
-        {/* Moving Sovereign Pathways */}
+        {/* Data Pathways */}
         <div className="absolute inset-0 pointer-events-none opacity-20">
           <svg className="w-full h-full">
             <filter id="glow">
@@ -64,8 +64,8 @@ const NexusLayout = ({ children, title = "Sovereign Nexus" }) => {
                 <Sparkles size={16} className="text-white" />
              </div>
              <div>
-                <h1 className="text-sm font-black tracking-[0.3em] uppercase">{title}</h1>
-                <p className="text-[9px] font-bold text-appleBlue/60 uppercase tracking-widest">Sovereign Intelligence v5.0</p>
+                <h1 className="text-sm font-black tracking-[0.3em] uppercase italic">{title}</h1>
+                <p className="text-[9px] font-bold text-appleBlue/60 uppercase tracking-widest italic">VITAM Intelligence v5.0</p>
              </div>
           </div>
         </div>
@@ -74,12 +74,12 @@ const NexusLayout = ({ children, title = "Sovereign Nexus" }) => {
            <div className="hidden md:flex items-center gap-6 px-6 py-2 bg-white/5 rounded-full border border-white/5">
               <div className="flex items-center gap-2">
                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]" />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80">Sovereign Link Stable</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500/80 italic">System Link Stable</span>
               </div>
               <div className="w-[1px] h-3 bg-white/10" />
               <div className="flex items-center gap-2">
                  <Cpu size={12} className="text-appleBlue" />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Load: 2.4 GFlops</span>
+                 <span className="text-[10px] font-black uppercase tracking-widest text-white/40 italic">Load: 2.4 GFlops</span>
               </div>
            </div>
            <motion.div whileHover={{ scale: 1.05 }} className="w-10 h-10 rounded-full bg-gradient-to-br from-appleBlue to-purple-600 border border-white/20 shadow-xl" />
@@ -93,7 +93,7 @@ const NexusLayout = ({ children, title = "Sovereign Nexus" }) => {
 
       {/* Footer Interface */}
       <footer className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-8 py-3 bg-black/40 backdrop-blur-2xl rounded-full border border-white/10 flex items-center gap-6">
-         <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em]">Absolute Secrecy Protocol Active</span>
+         <span className="text-[9px] font-black text-white/20 uppercase tracking-[0.4em] italic">Institutional Security Protocol Active</span>
          <div className="w-[1px] h-3 bg-white/10" />
          <div className="flex items-center gap-4">
             <ShieldCheck size={14} className="text-appleBlue opacity-40" />

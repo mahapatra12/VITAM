@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { StatCard, GlassCard, ActivityFeed } from '../../components/ui/DashboardComponents';
-import AIChat from '../../components/AIChat';
 
 export default function ParentDashboard() {
   return (
@@ -145,7 +144,6 @@ export default function ParentDashboard() {
         </div>
       </div>
 
-      <AIChat role="parent" />
     </DashboardLayout>
   );
 }

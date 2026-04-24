@@ -1,287 +1,365 @@
-import { BookOpen, FileText, Download, Layers, ShieldCheck, ChevronRight, Search, Zap, CheckCircle2, Sparkles, X, Eye, Users, MessageSquare, Activity } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  BookOpen,
+  Download,
+  Eye,
+  FileText,
+  Layers3,
+  Search,
+  Sparkles,
+  Users,
+  X
+} from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
+import { GlassCard, StatCard } from '../../components/ui/DashboardComponents';
+import WorkspaceHero from '../../components/ui/WorkspaceHero';
 import api from '../../utils/api';
 
-const SubjectCard = ({ subject, onStudy }) => {
-  const [completedUnits, setCompletedUnits] = useState([1]);
-  const units = [1, 2, 3, 4, 5];
-  const progress = (completedUnits.length / units.length) * 100;
+const DEFAULT_UNITS = [1, 2, 3, 4, 5];
+
+const FALLBACK_SYLLABUS = [
+  { name: 'Advanced Algorithms', materials: ['Intro to Algos.pdf', 'Complexity Notes.docx', 'Practice Sheet 1.pdf'] },
+  { name: 'Quantum Computing Foundations', materials: ['Qubits 101.pdf', 'Entanglement Notes.pdf', 'Quantum Lab Tasks.pdf'] },
+  { name: 'Cyber Security Systems', materials: ['Security Frameworks.pdf', 'Threat Modeling Guide.pdf'] },
+  { name: 'Cloud Architecture', materials: ['Cloud Patterns.pdf', 'Deployment Case Studies.pdf', 'Design Checklist.pdf'] }
+];
+
+function SubjectCard({ subject, onStudy }) {
+  const [completedUnits, setCompletedUnits] = useState([1, 2]);
+  const progress = Math.round((completedUnits.length / DEFAULT_UNITS.length) * 100);
 
   const toggleUnit = (unit) => {
-    setCompletedUnits(prev => 
-      prev.includes(unit) ? prev.filter(u => u !== unit) : [...prev, unit]
-    );
+    setCompletedUnits((previous) => (
+      previous.includes(unit)
+        ? previous.filter((item) => item !== unit)
+        : [...previous, unit].sort((a, b) => a - b)
+    ));
   };
 
   return (
-    <motion.div 
-      whileHover={{ y: -5 }}
-      className="p-8 bg-[#0a0a0a] rounded-[40px] border border-black/5 dark:border-white/5 shadow-2xl relative overflow-hidden group"
-    >
-      <div className="absolute -right-10 -top-10 w-32 h-32 bg-appleBlue/5 rounded-full blur-3xl group-hover:bg-appleBlue/10 transition-colors" />
-      <div className="flex justify-between items-start mb-8">
-        <div className="p-4 rounded-2xl bg-appleBlue/10 text-appleBlue">
-          <BookOpen size={24} />
-        </div>
-        <div className="flex items-center gap-2">
-           <span className="text-[10px] font-black text-appleBlue uppercase tracking-widest">{Math.round(progress)}% Mastery</span>
-           <div className="w-20 h-1 bg-white/5 rounded-full overflow-hidden">
-              <motion.div animate={{ width: `${progress}%` }} className="h-full bg-appleBlue" />
-           </div>
-        </div>
-      </div>
-      
-      <h3 className="text-xl font-black text-apple-text-primary dark:text-white tracking-tight mb-6 group-hover:text-appleBlue transition-colors uppercase italic">{subject.name}</h3>
-      
-      <div className="space-y-6">
-        <div className="grid grid-cols-5 gap-2">
-           {units.map(u => (
-             <button 
-               key={u}
-               onClick={() => toggleUnit(u)}
-               className={`h-10 rounded-xl border flex items-center justify-center transition-all ${completedUnits.includes(u) ? 'bg-appleBlue border-appleBlue text-white shadow-[0_0_10px_#0071e3]' : 'bg-white/5 border-white/5 text-white/20 hover:border-white/20'}`}
-             >
-               <span className="text-[10px] font-black">U{u}</span>
-             </button>
-           ))}
+    <motion.div whileHover={{ y: -3 }} className="glass-panel p-6 md:p-7">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-14 items-center justify-center rounded-3xl border border-blue-500/20 bg-blue-500/10 text-blue-200">
+            <BookOpen size={24} />
+          </div>
+          <div>
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+              Subject module
+            </p>
+            <h3 className="mt-2 text-xl font-black text-white">
+              {subject.name}
+            </h3>
+          </div>
         </div>
 
-        <div className="space-y-3">
-          {(subject.materials || ['Introduction.pdf', 'Module_Analysis.idx']).map((mat, i) => (
-            <div key={i} className="flex items-center justify-between p-4 bg-black/5 dark:bg-white/5 rounded-2xl hover:bg-black/10 transition-all cursor-pointer group/mat">
-              <div className="flex items-center gap-3">
-                <FileText size={14} className="text-appleBlue/40" />
-                <span className="text-xs font-bold text-apple-text-primary dark:text-white/60 group-hover/mat:text-white transition-colors">{mat}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                 <button onClick={() => onStudy(mat, subject.name)} className="p-2 hover:bg-appleBlue/10 rounded-lg text-appleBlue opacity-0 group-hover/mat:opacity-100 transition-all">
-                    <Eye size={14} />
-                 </button>
-                 <Download size={14} className="text-apple-text-secondary dark:text-white/10 group-hover/mat:text-appleBlue transition-all" />
-              </div>
-            </div>
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.2em] text-emerald-300">
+          {progress}% ready
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <div className="mb-2 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">
+          <span>Unit progress</span>
+          <span>{completedUnits.length}/{DEFAULT_UNITS.length}</span>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full border border-white/6 bg-slate-950/60">
+          <div className="h-full rounded-full bg-gradient-to-r from-blue-400 via-blue-500 to-cyan-400" style={{ width: `${progress}%` }} />
+        </div>
+        <div className="mt-4 grid grid-cols-5 gap-2">
+          {DEFAULT_UNITS.map((unit) => (
+            <button
+              key={unit}
+              type="button"
+              onClick={() => toggleUnit(unit)}
+              className={`rounded-2xl border px-3 py-3 text-[10px] font-extrabold uppercase tracking-[0.18em] transition-all ${
+                completedUnits.includes(unit)
+                  ? 'border-blue-500/30 bg-blue-500 text-white'
+                  : 'border-white/8 bg-slate-950/45 text-slate-400 hover:border-white/16 hover:text-white'
+              }`}
+            >
+              U{unit}
+            </button>
           ))}
         </div>
       </div>
-      
-      <button 
-        onClick={() => onStudy(subject.materials?.[0] || "Module_V1.pdf", subject.name)}
-        className="w-full mt-10 py-5 bg-appleBlue text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.4em] shadow-xl shadow-appleBlue/20 hover:scale-[1.02] transition-all"
+
+      <div className="mt-6 space-y-3">
+        {(subject.materials || []).map((material) => (
+          <div key={material} className="surface-card flex items-center justify-between gap-4 p-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-white">
+                {material}
+              </p>
+              <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                Ready for preview and download
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => onStudy(material, subject.name)} className="btn-secondary">
+                <Eye size={14} />
+                Preview
+              </button>
+              <button type="button" className="btn-secondary">
+                <Download size={14} />
+                Save
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onStudy(subject.materials?.[0] || 'Module Overview.pdf', subject.name)}
+        className="btn-primary mt-6 w-full justify-center"
       >
-         Initiate Deep Study
+        <Sparkles size={14} />
+        Open focused study mode
       </button>
     </motion.div>
   );
-};
+}
 
-const Syllabus = () => {
+export default function Syllabus() {
   const [syllabus, setSyllabus] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [studyItem, setStudyItem] = useState(null); // { name, subject }
+  const [query, setQuery] = useState('');
+  const [studyItem, setStudyItem] = useState(null);
 
   useEffect(() => {
     const fetchSyllabus = async () => {
       try {
-        const res = await api.get('/student/academics');
-        setSyllabus(res.data.syllabus || []);
-      } catch (err) {
-        setSyllabus([
-          { name: "Advanced Algorithms", materials: ["Intro_to_Algos.pdf", "Complexity.docx"] },
-          { name: "Quantum Computing Foundations", materials: ["Qubits_101.pdf", "Entanglement.idx"] },
-          { name: "Global Security Systems", materials: ["Sovereign_Sec.pdf"] },
-          { name: "Institutional Logic", materials: ["Logic_Core.pdf"] },
-        ]);
+        const response = await api.get('/student/academics');
+        setSyllabus(response.data?.syllabus?.length ? response.data.syllabus : FALLBACK_SYLLABUS);
+      } catch (error) {
+        setSyllabus(FALLBACK_SYLLABUS);
       } finally {
         setLoading(false);
       }
     };
+
     fetchSyllabus();
   }, []);
 
+  const filteredSyllabus = useMemo(() => {
+    return syllabus.filter((subject) => (
+      [subject.name, ...(subject.materials || [])]
+        .join(' ')
+        .toLowerCase()
+        .includes(query.toLowerCase())
+    ));
+  }, [query, syllabus]);
+
+  const totalMaterials = syllabus.reduce((sum, subject) => sum + (subject.materials?.length || 0), 0);
+
   return (
     <DashboardLayout title="Course Syllabus" role="STUDENT">
-      <div className="relative min-h-screen p-4 md:p-10 space-y-12 max-w-7xl mx-auto">
-        
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-10">
-           <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="w-2 h-2 bg-appleBlue rounded-full animate-pulse shadow-[0_0_10px_#0071e3]" />
-                <span className="text-[11px] font-black uppercase tracking-[0.8em] text-apple-text-secondary dark:text-white/40">Repository: v4.2.0-Alpha</span>
+      <WorkspaceHero
+        eyebrow="Syllabus workspace"
+        title="Structured learning repository"
+        description="Browse subjects, preview materials, track your unit readiness, and move into focused study mode from a cleaner academic workspace."
+        icon={Layers3}
+        badges={[
+          loading ? 'Syncing repository' : 'Repository synchronized',
+          `${syllabus.length} active subjects`,
+          `${totalMaterials} study assets`
+        ]}
+        stats={[
+          { label: 'Subjects', value: String(syllabus.length) },
+          { label: 'Materials', value: String(totalMaterials) },
+          { label: 'Peers active', value: '128' },
+          { label: 'Study readiness', value: '42%' }
+        ]}
+        aside={(
+          <div className="glass-panel h-full p-6 md:p-7">
+            <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+              Learning pulse
+            </p>
+            <h3 className="mt-2 text-2xl font-black text-white">
+              Study flow is stable
+            </h3>
+            <div className="mt-6 space-y-3">
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  Most active area
+                </p>
+                <p className="mt-3 text-sm leading-6 text-slate-200">
+                  Algorithm and cloud modules are currently the most content-rich sections in this repository snapshot.
+                </p>
               </div>
-              <h1 className="text-4xl md:text-6xl font-black text-apple-text-primary dark:text-white tracking-tight">Academic <span className="text-appleBlue text-appleBlue">Syllabus</span></h1>
-              <p className="text-sm font-bold text-apple-text-secondary dark:text-white/20 uppercase tracking-[0.4em] max-w-xl">
-                Access your course modules, learning materials, and study resources.
-              </p>
-           </div>
-           
-           <div className="relative group w-full md:w-80">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-apple-text-secondary dark:text-white/20 group-focus-within:text-appleBlue transition-colors" size={18} />
-              <input 
-                type="text" 
-                placeholder="Locate Module..." 
-                className="w-full bg-[#0a0a0a] border border-black/10 dark:border-white/10 rounded-[25px] h-16 pl-16 pr-8 text-xs font-black uppercase tracking-widest text-white outline-none focus:border-appleBlue/40 transition-all shadow-xl"
-              />
-           </div>
-        </div>
-
-        {/* Global Summary & Nexus Trigger */}
-        <div className="p-10 bg-[#0a0a0a] border border-white/5 rounded-[50px] relative overflow-hidden flex flex-col md:flex-row items-center gap-12 group cursor-default shadow-2xl">
-           <div className="absolute right-0 top-0 p-10 opacity-5 group-hover:opacity-10 transition-opacity">
-              <Layers size={120} className="text-appleBlue" />
-           </div>
-           
-           <div className="flex items-center gap-8 relative z-10">
-              <div className="w-20 h-20 bg-appleBlue rounded-[30px] flex items-center justify-center text-white shadow-2xl shadow-appleBlue/20">
-                 <ShieldCheck size={36} />
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  AI note
+                </p>
+                <p className="mt-3 text-sm leading-6 text-emerald-300">
+                  Open focused study mode to preview the module context and get a guided summary faster.
+                </p>
               </div>
-              <div className="space-y-1">
-                 <h4 className="text-2xl font-black text-white tracking-tighter uppercase italic">Institutional <span className="text-appleBlue">Registry</span></h4>
-                 <p className="text-[10px] font-black uppercase tracking-widest text-appleBlue/60">Node Verified // SYNCED</p>
-              </div>
-           </div>
-           
-           <div className="h-[1px] md:h-12 w-full md:w-[1px] bg-white/5 relative z-10" />
-           
-           <div className="flex gap-10 relative z-10 flex-1">
-              <div className="text-center md:text-left">
-                 <p className="text-[9px] font-black uppercase tracking-widest text-white/20 mb-1">Saturation</p>
-                 <p className="text-xl font-black text-white italic">42% Complete</p>
-              </div>
-              <button className="ml-auto px-8 py-4 bg-appleBlue text-white rounded-2xl text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-appleBlue/20 flex items-center gap-4">
-                 <Users size={14} />
-                 Enter Study Nexus
-              </button>
-           </div>
-        </div>
+            </div>
+          </div>
+        )}
+      />
 
-        {/* Syllabus Nexus Matrix */}
-        <div className="p-10 bg-[#050505] border border-white/10 rounded-[50px] relative overflow-hidden group">
-           <div className="absolute inset-0 bg-gradient-to-r from-appleBlue/5 to-transparent pointer-events-none" />
-           <div className="flex justify-between items-center mb-10">
-              <div className="space-y-1">
-                 <h3 className="text-sm font-black text-white uppercase tracking-widest italic">Nexus Peer Presence</h3>
-                 <p className="text-[10px] font-black text-white/20 uppercase tracking-widest">Real-time collaborative synthesis indicators</p>
-              </div>
-              <div className="flex items-center gap-4">
-                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_10px_#10b981]" />
-                 <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest italic">128 Scholars Active</span>
-              </div>
-           </div>
-           
-           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-              {[
-                { name: 'Neural Nets', active: 14, state: 'Critical' },
-                { name: 'Algorithmic Synthesis', active: 28, state: 'Peak' },
-                { name: 'Quantum Core', active: 8, state: 'Emerging' },
-                { name: 'Cyber Sentinel', active: 18, state: 'High' }
-              ].map((n, i) => (
-                <div key={i} className="space-y-4 p-6 bg-white/5 border border-white/5 rounded-3xl hover:border-appleBlue/20 transition-all cursor-pointer group/peer">
-                   <div className="flex justify-between items-start">
-                      <div className="flex -space-x-3">
-                        {[1, 2, 3].map(p => (
-                          <div key={p} className="w-8 h-8 rounded-full border-2 border-[#050505] bg-appleBlue/20 flex items-center justify-center text-[7px] font-black text-appleBlue">
-                            S{p}
-                          </div>
-                        ))}
-                        <div className="w-8 h-8 rounded-full border-2 border-[#050505] bg-white/10 flex items-center justify-center text-[7px] font-black text-white/40">
-                          +{n.active - 3}
-                        </div>
-                      </div>
-                      <Activity size={14} className="text-appleBlue opacity-20 group-hover/peer:opacity-100 transition-opacity" />
-                   </div>
-                   <h4 className="text-[10px] font-black text-white/40 uppercase tracking-widest group-hover/peer:text-white transition-colors">{n.name}</h4>
-                   <div className="flex items-center gap-3">
-                      <MessageSquare size={10} className="text-appleBlue/40" />
-                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Flow: {n.state}</span>
-                   </div>
-                </div>
-              ))}
-           </div>
-        </div>
-
-        {/* Syllabus Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-10">
-          {syllabus.map((subject, i) => (
-            <SubjectCard key={i} subject={subject} onStudy={(name, sub) => setStudyItem({ name, sub })} />
-          ))}
-        </div>
-
-        {/* Study Mode Overlay */}
-        <AnimatePresence>
-          {studyItem && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-50 bg-[#050505]/95 backdrop-blur-3xl flex flex-col"
-            >
-               <div className="p-8 border-b border-white/5 flex justify-between items-center">
-                  <div className="flex items-center gap-6">
-                     <div className="p-4 bg-appleBlue rounded-2xl text-white">
-                        <BookOpen size={24} />
-                     </div>
-                     <div>
-                        <h2 className="text-xl font-black text-white uppercase tracking-widest italic">{studyItem.sub}</h2>
-                        <p className="text-[10px] font-black text-appleBlue uppercase tracking-[0.4em]">{studyItem.name}</p>
-                     </div>
-                  </div>
-                  <button onClick={() => setStudyItem(null)} className="p-4 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all">
-                     <X size={24} />
-                  </button>
-               </div>
-
-               <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-                  <div className="lg:col-span-8 p-10 flex flex-col items-center justify-center space-y-10 group overflow-y-auto">
-                     <div className="w-full max-w-4xl h-[80vh] bg-[#0a0a0a] rounded-[50px] border border-white/10 shadow-[0_40px_100px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center p-20 text-center space-y-10 relative">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-appleBlue/20">
-                           <motion.div initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 60 }} className="h-full bg-appleBlue" />
-                        </div>
-                        <FileText size={80} className="text-appleBlue opacity-20" />
-                        <div>
-                           <h3 className="text-3xl font-black text-white mb-4">MATERIAL PREVIEW UNAVAILABLE</h3>
-                           <p className="text-sm font-bold text-white/20 uppercase tracking-widest italic">Institutional sandbox restricted: Use 'Download' for full access.</p>
-                        </div>
-                        <div className="flex gap-4">
-                           <button className="px-10 py-5 bg-appleBlue text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-2xl">Download Manifold</button>
-                        </div>
-                     </div>
-                  </div>
-
-                  <div className="lg:col-span-4 border-l border-white/5 p-10 space-y-10 bg-black/20 overflow-y-auto">
-                     <div className="p-8 bg-appleBlue/5 border border-appleBlue/20 rounded-[40px] space-y-6">
-                        <div className="flex items-center gap-4 text-appleBlue">
-                           <Sparkles size={20} />
-                           <h4 className="text-[10px] font-black uppercase tracking-[0.4em]">AI Synthesis</h4>
-                        </div>
-                        <p className="text-xs font-bold text-white/60 leading-relaxed italic">
-                           "This module covers the fundamental architectures of {studyItem.sub}, focusing on high-speed optimization and recursive structures. Key takeaways include the application of Institutional Logic and Sovereign Security protocols."
-                        </p>
-                     </div>
-
-                     <div className="space-y-6">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-white/20">Contextual Meta</h4>
-                        {[
-                          { label: 'Complexity', value: 'High' },
-                          { label: 'Relevance', value: 'Critical' },
-                          { label: 'Time to Mastery', value: '45 mins' },
-                        ].map((m, i) => (
-                          <div key={i} className="flex justify-between items-center p-6 bg-white/5 rounded-3xl border border-transparent hover:border-white/10 transition-all">
-                             <span className="text-[10px] font-black uppercase tracking-widest text-white/30">{m.label}</span>
-                             <span className="text-xs font-black text-white italic">{m.value}</span>
-                          </div>
-                        ))}
-                     </div>
-                  </div>
-               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
+      <div className="mb-8 grid grid-cols-2 gap-5 lg:grid-cols-4">
+        <StatCard title="Subjects" value={String(syllabus.length)} icon={BookOpen} color="bg-blue-500" trend="Academic core" />
+        <StatCard title="Materials" value={String(totalMaterials)} icon={FileText} color="bg-emerald-500" trend="Repository" />
+        <StatCard title="Live Scholars" value="128" icon={Users} color="bg-violet-500" trend="Collaborative" />
+        <StatCard title="Mastery Index" value="42%" icon={Sparkles} color="bg-amber-500" trend="Rising" />
       </div>
+
+      <div className="mb-8 grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+        <GlassCard title="Find a module" subtitle="Search subjects and resources" icon={Search}>
+          <label className="surface-card flex items-center gap-3 px-4 py-3">
+            <Search size={16} className="text-slate-400" />
+            <input
+              type="text"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search subjects, documents, or topics"
+              className="w-full bg-transparent text-sm text-white placeholder:text-slate-500 focus:outline-none"
+            />
+          </label>
+        </GlassCard>
+
+        <GlassCard title="Study presence" subtitle="Peer learning snapshot" icon={Users}>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { name: 'Algorithms', flow: 'Peak' },
+              { name: 'Cyber', flow: 'High' },
+              { name: 'Cloud', flow: 'Rising' },
+              { name: 'Quantum', flow: 'Focused' }
+            ].map((item) => (
+              <div key={item.name} className="surface-card p-4">
+                <p className="text-sm font-black text-white">
+                  {item.name}
+                </p>
+                <p className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-emerald-300">
+                  Flow {item.flow}
+                </p>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        {loading ? (
+          Array.from({ length: 4 }).map((_, index) => (
+            <div key={`syllabus-skeleton-${index}`} className="glass-panel h-[360px] animate-pulse" />
+          ))
+        ) : filteredSyllabus.length > 0 ? (
+          filteredSyllabus.map((subject) => (
+            <SubjectCard key={subject.name} subject={subject} onStudy={(name, sub) => setStudyItem({ name, sub })} />
+          ))
+        ) : (
+          <div className="glass-panel col-span-full flex min-h-[280px] flex-col items-center justify-center px-6 py-10 text-center">
+            <div className="rounded-[1.8rem] border border-blue-500/20 bg-blue-500/10 p-4 text-blue-200">
+              <Search size={22} />
+            </div>
+            <h3 className="mt-5 text-2xl font-black text-white">
+              No syllabus match found
+            </h3>
+            <p className="mt-3 max-w-md text-sm leading-7 text-slate-400">
+              Try another search keyword to find a subject, document, or learning resource inside the repository.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {studyItem ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-[rgba(3,8,20,0.82)] backdrop-blur-2xl"
+          >
+            <div className="flex h-full flex-col">
+              <div className="flex items-center justify-between border-b border-white/6 px-6 py-5 md:px-8">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-3xl border border-blue-500/20 bg-blue-500/10 text-blue-200">
+                    <BookOpen size={22} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                      Focused study mode
+                    </p>
+                    <h2 className="mt-1 text-xl font-black text-white">
+                      {studyItem.sub}
+                    </h2>
+                    <p className="mt-1 text-sm text-blue-200">
+                      {studyItem.name}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStudyItem(null)}
+                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 text-slate-500 transition-all hover:text-white"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="grid flex-1 gap-6 overflow-auto p-6 md:grid-cols-[1.35fr_0.65fr] md:p-8">
+                <div className="premium-card flex min-h-[420px] flex-col items-center justify-center p-8 text-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-[2rem] border border-blue-500/20 bg-blue-500/10 text-blue-200">
+                    <FileText size={34} />
+                  </div>
+                  <h3 className="mt-8 text-3xl font-black text-white">
+                    Preview workspace ready
+                  </h3>
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300">
+                    This panel is ready for document rendering, annotations, and deep reading mode. For now it shows a clean preview shell instead of a broken placeholder.
+                  </p>
+                  <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                    <button type="button" className="btn-primary">
+                      <Download size={14} />
+                      Download material
+                    </button>
+                    <button type="button" className="btn-secondary">
+                      <Sparkles size={14} />
+                      Generate summary
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <GlassCard title="AI Study Brief" subtitle="Quick module context" icon={Sparkles}>
+                    <div className="rounded-[1.5rem] border border-blue-500/18 bg-blue-500/8 p-5">
+                      <p className="text-sm leading-7 text-slate-200">
+                        This study asset belongs to {studyItem.sub}. Use it to understand the core concepts first, then move into problem solving or revision drills once the summary is clear.
+                      </p>
+                    </div>
+                  </GlassCard>
+
+                  <GlassCard title="Module meta" subtitle="Learning snapshot" icon={BookOpen}>
+                    <div className="space-y-3">
+                      {[
+                        { label: 'Complexity', value: 'Medium to high' },
+                        { label: 'Revision need', value: 'Recommended this week' },
+                        { label: 'Focus session', value: '45 minutes' }
+                      ].map((item) => (
+                        <div key={item.label} className="surface-card flex items-center justify-between p-4">
+                          <p className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-400">
+                            {item.label}
+                          </p>
+                          <p className="text-sm font-black text-white">
+                            {item.value}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </GlassCard>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </DashboardLayout>
   );
-};
-
-export default Syllabus;
+}

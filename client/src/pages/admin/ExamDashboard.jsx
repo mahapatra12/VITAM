@@ -137,7 +137,6 @@ export default function ExamDashboard() {
         </div>
       </GlassCard>
 
-      <AIChat role="exam" />
     </DashboardLayout>
   );
 }

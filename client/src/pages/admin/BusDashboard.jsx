@@ -5,7 +5,6 @@ import { BusFront, MapPin, AlertTriangle, Users, Navigation, Wrench, ShieldCheck
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import AIChat from '../../components/AIChat';
 
 const ROUTES = [
   { id: 'R1', name: 'City Centre Loop', stops: 12, students: 84, driver: 'Raju K.', bus: 'AP09-TT-1234', status: 'On Time', eta: '7:45 AM', capacity: 92 },
@@ -139,7 +138,6 @@ export default function BusDashboard() {
         </div>
       </GlassCard>
 
-      <AIChat role="bus" />
     </DashboardLayout>
   );
 }

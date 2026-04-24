@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { 
   Zap, Droplets, Wind, Home, Activity, 
   BarChart3, Settings, ShieldCheck, 
-  ArrowUpRight, AlertTriangle, Cpu, Globe
+  ArrowUpRight, AlertTriangle, Cpu, Globe,
+  Users, BookOpen
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { GlassCard } from '../../components/ui/DashboardComponents';

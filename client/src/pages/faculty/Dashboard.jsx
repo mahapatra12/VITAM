@@ -1,67 +1,86 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Suspense, useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
-  Sparkles, BookOpen, Users, Calendar, ClipboardCheck,
-  Plus, FileText, Search, X, TrendingUp, Clock,
-  CheckCircle2, AlertCircle, BarChart2, Brain
+  BookOpen,
+  Brain,
+  Calendar,
+  ClipboardCheck,
+  Plus,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  X,
+  Zap
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
-import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, LineChart, Line, Legend
-} from 'recharts';
-import AIChat from '../../components/AIChat';
+import { GlassCard, GlassSkeleton, StatCard } from '../../components/ui/DashboardComponents';
+import WorkspaceHero from '../../components/ui/WorkspaceHero';
+import ActionDialog from '../../components/ui/ActionDialog';
+import DeferredSection from '../../components/ui/DeferredSection';
 import api, { MOCK_DATA } from '../../utils/api';
 import { useAuth } from '../../context/AuthContext';
+import SystemStatusPanel from '../../components/ui/SystemStatusPanel';
+import CommandFeed from '../../components/ui/CommandFeed';
+import { useHealth } from '../../context/HealthContext';
+import { useToast } from '../../components/ui/ToastSystem';
+import Telemetry from '../../utils/telemetry';
+import lazySimple from '../../utils/lazySimple';
+import { cancelIdleTask, scheduleIdleTask } from '../../utils/idleTask';
 
-const ATTENDANCE_TREND = [
-  { week: 'W1', AI401: 91, CS302: 85, AI402: 88, CS201: 94 },
-  { week: 'W2', AI401: 88, CS302: 82, AI402: 85, CS201: 91 },
-  { week: 'W3', AI401: 84, CS302: 79, AI402: 90, CS201: 93 },
-  { week: 'W4', AI401: 87, CS302: 83, AI402: 86, CS201: 88 },
-  { week: 'W5', AI401: 90, CS302: 86, AI402: 91, CS201: 92 },
+const TEACHING_PRIORITIES = [
+  { label: 'Attendance audit', description: 'Sync classroom presence logs', color: 'bg-blue-600', icon: Zap },
+  { label: 'Integrity monitoring', description: 'Active exam security protocol', color: 'bg-emerald-600', icon: ShieldCheck },
+  { label: 'Student outreach', description: 'Issue directives to at-risk learners', color: 'bg-indigo-600', icon: Users },
+  { label: 'Curriculum audit', description: 'Verify pedagogical coverage velocity', color: 'bg-slate-800', icon: BookOpen }
 ];
 
-const STUDENT_RADAR = [
-  { metric: 'Attendance', score: 87 },
-  { metric: 'Assignments', score: 74 },
-  { metric: 'Internal Marks', score: 82 },
-  { metric: 'Lab Work', score: 91 },
-  { metric: 'Participation', score: 68 },
-];
+const FacultyInsightsSection = lazySimple(() => import('./sections/FacultyInsightsSection'));
 
-const ASSIGNMENTS = [
-  { title: 'Operating Systems Quiz', due: 'Tomorrow', submitted: 42, total: 50, pct: 84 },
-  { title: 'Networking Mini Project', due: 'In 3 days', submitted: 12, total: 50, pct: 24 },
-  { title: 'Cloud Computing Lab', due: 'Next Week', submitted: 0, total: 50, pct: 0 },
-  { title: 'AI Ethics Case Study', due: 'In 5 days', submitted: 28, total: 50, pct: 56 },
-];
-
-const AT_RISK = [
-  { name: 'Suresh M.', course: 'AI-401', attendance: 62, marks: 41, risk: 'critical' },
-  { name: 'Kavya R.', course: 'CS-302', attendance: 68, marks: 48, risk: 'high' },
-  { name: 'Deva P.', course: 'AI-402', attendance: 71, marks: 52, risk: 'medium' },
-];
-
-const TS = { contentStyle: { backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12 }, itemStyle: { color: '#e2e8f0' }, labelStyle: { color: '#94a3b8', fontWeight: 700 } };
-
-const FacultyDashboard = () => {
+export default function FacultyDashboard() {
   const { user } = useAuth();
+  const { health } = useHealth();
+  const { push } = useToast();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [showModal, setShowModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [stats, setStats] = useState(MOCK_DATA.faculty);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [aiInsight, setAiInsight] = useState('');
+  const [directiveDraft, setDirectiveDraft] = useState({
+    title: '',
+    dueDate: '',
+    weighting: '50'
+  });
+
+  const handleAcademicAction = (action) => {
+    Telemetry.info(`[Academic Action] Faculty initiated: ${action}`);
+    push({
+      type: 'info',
+      title: 'Action Directive Issued',
+      body: `Institutional directive [${action}] is now being synchronized across all course nodes.`
+    });
+  };
+
+  const applyFacultyStats = (payload) => {
+    setStats(payload || MOCK_DATA.faculty);
+  };
 
   useEffect(() => {
-    api.get('/faculty/dashboard').then(({ data }) => setStats(data)).catch(() => {});
-    setTimeout(() => {
-      setAiInsight('Faculty AI: Class AI-401 shows a declining attendance trend (−4% over 5 weeks). Recommend scheduling a mid-semester intervention session. Top performer: CS-201 at 92% avg attendance. 3 students flagged for academic risk — immediate counseling recommended. Question bank for next internal exam ready for AI generation.');
-    }, 1400);
+    api.get('/faculty/dashboard', {
+      cache: {
+        maxAge: 30000,
+        staleWhileRevalidate: true,
+        revalidateAfter: 12000,
+        persist: true,
+        onUpdate: (response) => applyFacultyStats(response?.data)
+      }
+    }).then(({ data }) => applyFacultyStats(data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handle = scheduleIdleTask(() => {
+      void FacultyInsightsSection.preload?.();
+    }, 1400, 450);
+
+    return () => cancelIdleTask(handle);
   }, []);
 
   const analyzeGrading = async () => {
@@ -71,180 +90,196 @@ const FacultyDashboard = () => {
       const { data } = await api.post('/ai/generate-report', { type: 'GRADING_INSIGHTS', data: stats });
       setReport(data.report);
     } catch {
-      setReport(`📊 AI Grading Strategy — Class Report\n\nCourse: AI-401 | Students: ${stats.totalStudents} | Avg Attendance: ${stats.attendanceAvg}\n\n✅ Recommendation: Apply +3% normalization curve to OS Quiz (avg was 61 vs expected 70).\n\n⚠️ 3 students at critical risk — recommend immediate counseling.\n\n📌 Pending Grading: ${stats.pendingGrading} assignments — prioritize AI Ethics submissions.\n\n🎯 Projected Semester Pass Rate: 94.2% (up from 91% last sem).`);
-    } finally { setLoading(false); }
+      setReport(
+        'Institutional Performance Analysis - Summary\n\nRecommendation: Apply +3% normalization to the assessment based on class performance distribution.\n\n3 students identified for proactive academic counseling.\n\nProjected Semester Completion Rate: 94.2%.'
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const riskColor = (r) => r === 'critical' ? 'text-red-400 bg-red-500/10' : r === 'high' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10';
+  const handleCreateDirective = () => {
+    push({
+      type: 'success',
+      title: 'Directive Prepared',
+      body: directiveDraft.title
+        ? `${directiveDraft.title} has been staged for faculty release.`
+        : 'A new instructional directive has been staged for release.'
+    });
+    setShowCreateModal(false);
+    setDirectiveDraft({ title: '', dueDate: '', weighting: '50' });
+  };
 
   return (
-    <DashboardLayout title="Teaching Intelligence" role="FACULTY">
-      <div className="mb-8 flex justify-between items-start flex-wrap gap-4">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-400 mb-1">Faculty Portal</p>
-          <h2 className="text-3xl font-black text-white tracking-tight">Welcome, Prof. {user?.name?.split(' ')[0] || 'Sarah'} 👋</h2>
-          <p className="text-slate-400 font-medium mt-1">Class analytics, AI grading & student risk intelligence</p>
-        </div>
-        <div className="flex gap-3">
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-800 border border-slate-700 text-white text-sm font-black hover:border-blue-500/40 transition-all">
-            <Plus size={16} /> New Assessment
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            onClick={analyzeGrading} disabled={loading}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600 text-white text-sm font-black hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-60">
-            <Sparkles size={16} />
-            {loading ? 'Analyzing...' : 'AI Grade Analysis'}
-          </motion.button>
-        </div>
+    <DashboardLayout title="Faculty Operations Portal" role="FACULTY">
+      <WorkspaceHero
+        eyebrow="Faculty workspace"
+        title={`Teaching command center for ${user?.name || 'faculty operations'}`}
+        description="Coordinate grading, attendance, course delivery, and support interventions from a calmer view that helps you act faster across every class cycle."
+        icon={ShieldCheck}
+        badges={[
+          health.variance > 40 ? 'Variance detected' : 'Operationally synchronized',
+          'AI-assisted grading',
+          `${stats.totalStudents || '120'} learner records`
+        ]}
+        actions={[
+          {
+            label: 'New Directive',
+            icon: Plus,
+            tone: 'secondary',
+            onClick: () => setShowCreateModal(true)
+          },
+          {
+            label: loading ? 'Analyzing...' : 'Strategic Synthesis',
+            icon: Sparkles,
+            tone: 'primary',
+            disabled: loading,
+            onClick: analyzeGrading
+          }
+        ]}
+        stats={[
+          { label: 'Allocated courses', value: stats.allocatedCourses || '4' },
+          { label: 'Student coverage', value: stats.totalStudents || '120' },
+          { label: 'Attendance average', value: stats.attendanceAvg || '88%' },
+          { label: 'Pending grading', value: stats.pendingGrading || '18' }
+        ]}
+        aside={(
+          <div className="space-y-4">
+            <SystemStatusPanel mode="DEPARTMENT" />
+            <div className="surface-card p-4">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                Faculty insight
+              </p>
+              <p className="mt-3 text-sm leading-6 text-slate-200">
+                Three students are trending toward intervention review. Publishing one directive today will clear the highest-priority academic backlog.
+              </p>
+            </div>
+          </div>
+        )}
+      />
+
+      <div className="mb-12 grid grid-cols-2 gap-6 lg:grid-cols-4">
+        <StatCard title="Assigned Courses" value={stats.allocatedCourses || '4'} icon={BookOpen} color="bg-blue-600" trend="Active Cycle" />
+        <StatCard title="Total Students" value={stats.totalStudents || '120'} icon={Users} color="bg-emerald-600" trend="Enrollment Stable" />
+        <StatCard title="Avg Attendance" value={stats.attendanceAvg || '88%'} icon={Calendar} color="bg-indigo-600" trend="-1.2% variance" />
+        <StatCard title="Pending Grading" value={stats.pendingGrading || '18'} icon={ClipboardCheck} color="bg-amber-600" trend="Due soon" />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard title="Courses Teaching" value={stats.allocatedCourses || '4'} icon={BookOpen} color="bg-blue-500" />
-        <StatCard title="Total Students" value={stats.totalStudents || '120'} icon={Users} color="bg-emerald-500" />
-        <StatCard title="Avg Attendance" value={stats.attendanceAvg || '88%'} icon={Calendar} color="bg-purple-500" trend="-1.2%" />
-        <StatCard title="Pending Grading" value={stats.pendingGrading || '18'} icon={ClipboardCheck} color="bg-amber-500" />
-      </div>
-
-      {/* AI Report Banner */}
       <AnimatePresence>
         {report && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="mb-6 p-5 rounded-3xl border border-blue-500/20 bg-blue-500/5 relative">
-            <button onClick={() => setReport(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={16} /></button>
-            <div className="flex items-center gap-2 mb-3 text-blue-400">
-              <Brain size={18} /><span className="font-black text-sm uppercase tracking-wider">AI Grading Intelligence</span>
-            </div>
-            <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap">{report}</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <GlassCard title="Attendance Trend by Course" subtitle="5-week class presence analytics" className="lg:col-span-2">
-          <div className="h-[220px] mt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={ATTENDANCE_TREND}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="week" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} unit="%" domain={[60, 100]} />
-                <Tooltip {...TS} formatter={(v) => [`${v}%`, 'Attendance']} />
-                <Legend formatter={(v) => <span style={{ color: '#94a3b8', fontSize: 11, fontWeight: 700 }}>{v}</span>} />
-                <Line type="monotone" dataKey="AI401" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="CS302" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="AI402" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="CS201" stroke="#f59e0b" strokeWidth={2} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
-
-        <GlassCard title="Class Performance Radar" subtitle="Average student score across 5 dimensions">
-          <div className="h-[220px] mt-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={STUDENT_RADAR} outerRadius={75}>
-                <PolarGrid stroke="#1e293b" />
-                <PolarAngleAxis dataKey="metric" tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} />
-                <PolarRadiusAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 9 }} />
-                <Radar dataKey="score" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.25} strokeWidth={2} dot={{ r: 3, fill: '#3b82f6' }} />
-                <Tooltip {...TS} formatter={(v) => [`${v}/100`]} />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
-      </div>
-
-      {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Assignments */}
-        <GlassCard title="Active Assessments" subtitle="Submission tracking & deadlines">
-          <div className="mt-3 space-y-3">
-            {ASSIGNMENTS.map((a) => (
-              <div key={a.title} className="p-3 bg-slate-800/50 rounded-xl">
-                <div className="flex justify-between items-start mb-2">
-                  <p className="text-white font-black text-sm">{a.title}</p>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400">{a.due}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all duration-1000 ${a.pct > 70 ? 'bg-emerald-500' : a.pct > 30 ? 'bg-amber-500' : 'bg-blue-500'}`} style={{ width: `${a.pct}%` }} />
-                  </div>
-                  <span className="text-xs font-bold text-slate-400">{a.submitted}/{a.total}</span>
-                </div>
-              </div>
-            ))}
-            <button onClick={() => setShowCreateModal(true)}
-              className="w-full mt-1 py-2.5 rounded-xl border border-dashed border-slate-700 text-slate-500 text-xs font-bold hover:border-blue-500/50 hover:text-blue-400 transition-all flex items-center justify-center gap-2">
-              <Plus size={14} /> Create New Assessment
+          <motion.div
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="premium-card group relative mb-12 overflow-hidden p-8 md:p-10"
+          >
+            <div className="absolute right-0 top-0 h-64 w-64 translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-500/10 blur-3xl transition-all duration-500 group-hover:bg-blue-500/20" />
+            <button
+              type="button"
+              onClick={() => setReport(null)}
+              className="absolute right-6 top-6 rounded-2xl border border-white/10 bg-white/5 p-3 text-slate-500 transition-all hover:text-white"
+            >
+              <X size={18} />
             </button>
-          </div>
-        </GlassCard>
-
-        {/* At-Risk Students */}
-        <GlassCard title="At-Risk Students" subtitle="AI-flagged for academic intervention" icon={AlertCircle}>
-          <div className="mt-3 space-y-3">
-            {AT_RISK.map((s) => (
-              <div key={s.name} className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
-                <div>
-                  <p className="text-white font-black text-sm">{s.name}</p>
-                  <p className="text-slate-400 text-xs">{s.course} · Attendance: {s.attendance}% · Marks: {s.marks}/100</p>
-                </div>
-                <span className={`text-[10px] font-black px-2 py-1 rounded-full ${riskColor(s.risk)}`}>{s.risk}</span>
-              </div>
-            ))}
-            <div className="p-3 bg-slate-900/50 rounded-xl border border-slate-800">
-              <p className="text-xs text-slate-500 italic">{aiInsight || 'AI scanning class patterns...'}</p>
+            <div className="mb-6 flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.5em] text-indigo-400">
+              <Brain size={20} className="text-indigo-500" />
+              Strategic Architecture Synthesis
             </div>
-          </div>
-        </GlassCard>
-      </div>
-
-      {/* Create Assessment Modal */}
-      <AnimatePresence>
-        {showCreateModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
-              className="w-full max-w-md rounded-3xl p-6 border border-white/10"
-              style={{ background: 'rgba(15, 23, 42, 0.97)' }}>
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="text-white font-black text-lg">Create Assessment</h3>
-                <button onClick={() => setShowCreateModal(false)} className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white"><X size={16} /></button>
-              </div>
-              <div className="space-y-4">
-                {[
-                  { label: 'Title', type: 'text', placeholder: 'e.g. Data Structures Lab 4' },
-                  { label: 'Due Date', type: 'date', placeholder: '' },
-                  { label: 'Max Marks', type: 'number', placeholder: '50' },
-                ].map(f => (
-                  <div key={f.label}>
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">{f.label}</label>
-                    <input type={f.type} placeholder={f.placeholder}
-                      className="w-full px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white text-sm font-medium focus:outline-none focus:border-blue-500/50 transition-all" />
-                  </div>
-                ))}
-                <div>
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1.5 block">Course</label>
-                  <select className="w-full px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700 text-white text-sm focus:outline-none">
-                    <option>AI-401</option><option>CS-302</option><option>AI-402</option><option>CS-201</option>
-                  </select>
-                </div>
-                <button onClick={() => setShowCreateModal(false)}
-                  className="w-full py-3 rounded-2xl bg-blue-600 text-white font-black text-sm hover:bg-blue-500 transition-all">
-                  Create Assessment ✓
-                </button>
-              </div>
-            </motion.div>
+            <p className="whitespace-pre-wrap text-lg leading-relaxed text-slate-200">
+              {report}
+            </p>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <AIChat role="faculty" />
+      <DeferredSection className="mb-12" minHeight={420}>
+        <Suspense fallback={<GlassSkeleton className="h-[420px]" />}>
+          <FacultyInsightsSection />
+        </Suspense>
+      </DeferredSection>
+
+      <DeferredSection className="mb-12" minHeight={360}>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+          <GlassCard title="Academic Control Bridge" subtitle="Instructional performance management" className="lg:col-span-2">
+            <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
+              {TEACHING_PRIORITIES.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={() => handleAcademicAction(action.label)}
+                  className="surface-card group flex items-center gap-5 p-5 text-left transition-all hover:border-blue-500/20 hover:bg-white/10"
+                >
+                  <div className={`rounded-2xl p-4 text-white shadow-2xl transition-transform group-hover:scale-110 ${action.color}`}>
+                    <action.icon size={20} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-tight text-white">
+                      {action.label}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                      {action.description}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </GlassCard>
+
+          <CommandFeed className="premium-card p-6" limit={6} filter={['INFO']} />
+        </div>
+      </DeferredSection>
+
+      <ActionDialog
+        open={showCreateModal}
+        title="Prepare Instructional Directive"
+        description="Create a clean directive draft for assignments, assessments, or classroom operations without leaving the faculty workspace."
+        confirmLabel="Issue Directive"
+        cancelLabel="Close"
+        tone="info"
+        onClose={() => setShowCreateModal(false)}
+        onConfirm={handleCreateDirective}
+      >
+        <div className="space-y-5">
+          <div>
+            <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.26em] text-slate-400">
+              Directive title
+            </label>
+            <input
+              type="text"
+              value={directiveDraft.title}
+              onChange={(event) => setDirectiveDraft((current) => ({ ...current, title: event.target.value }))}
+              placeholder="e.g. AI-401 Lab Report"
+              className="w-full rounded-3xl border border-white/10 bg-slate-950/80 px-5 py-4 text-white outline-none transition-all placeholder:text-slate-500 focus:border-blue-500/40"
+            />
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.26em] text-slate-400">
+                Submission timeline
+              </label>
+              <input
+                type="date"
+                value={directiveDraft.dueDate}
+                onChange={(event) => setDirectiveDraft((current) => ({ ...current, dueDate: event.target.value }))}
+                className="w-full rounded-3xl border border-white/10 bg-slate-950/80 px-5 py-4 text-white outline-none transition-all focus:border-blue-500/40"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.26em] text-slate-400">
+                Assessment weighting
+              </label>
+              <input
+                type="number"
+                value={directiveDraft.weighting}
+                onChange={(event) => setDirectiveDraft((current) => ({ ...current, weighting: event.target.value }))}
+                className="w-full rounded-3xl border border-white/10 bg-slate-950/80 px-5 py-4 text-white outline-none transition-all focus:border-blue-500/40"
+              />
+            </div>
+          </div>
+        </div>
+      </ActionDialog>
     </DashboardLayout>
   );
-};
-
-export default FacultyDashboard;
+}

@@ -9,6 +9,13 @@ import DashboardLayout from '../../layouts/DashboardLayout';
 import { GlassCard } from '../../components/ui/DashboardComponents';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/ToastSystem';
+import NeuralNetBackground from '../../components/auth/NeuralNetBackground';
+import NeuroWaveOverlay from '../../components/auth/NeuroWaveOverlay';
+import SentinelCompanion from '../../components/auth/SentinelCompanion';
+import AIDroneAvatar from '../../components/auth/AIDroneAvatar';
+import NeuralHeartbeat from '../../components/auth/NeuralHeartbeat';
+import RecursiveAudit from '../../components/auth/RecursiveAudit';
+import { institutionalAudio } from '../../utils/InstitutionalAudio';
 
 const RISK_LEVELS = {
   critical: { label: 'Critical',   color: '#ef4444', bg: 'bg-red-500/10',    border: 'border-red-500/30',    text: 'text-red-400',    bar: 'bg-red-500' },
@@ -196,12 +203,26 @@ export default function StudentRiskAnalytics() {
 
   return (
     <DashboardLayout title="Risk Analytics" role={user?.role || 'HOD'}>
-      <div className="mb-8">
-        <h2 className="text-3xl font-black text-white flex items-center gap-3">
-          <Brain size={28} className="text-purple-500" /> Student Risk Analytics
-        </h2>
-        <p className="text-slate-400 mt-1">AI-powered early warning system to identify and intervene for at-risk students.</p>
-      </div>
+      <div className="relative pb-24 font-['Outfit'] overflow-hidden">
+        <NeuralNetBackground />
+        <NeuroWaveOverlay />
+        <AIDroneAvatar status={counts.critical > 0 ? 'Warning' : 'Secure'} />
+        <SentinelCompanion />
+        
+        <div className="mb-12 flex flex-col md:flex-row justify-between items-start md:items-center gap-10 bg-white/[0.02] p-12 rounded-[50px] border border-white/5 shadow-2xl relative z-10 transition-all">
+          <div className="flex items-center gap-10">
+             <div className="w-24 h-24 rounded-[30px] overflow-hidden border border-white/5 relative bg-black/40 flex items-center justify-center p-4">
+                <NeuralHeartbeat score={100 - (counts.critical * 20)} />
+             </div>
+             <div>
+                <h2 className="text-5xl font-black text-white italic tracking-tighter uppercase leading-none">Risk <span className="text-purple-500">Nexus</span></h2>
+                <div className="flex items-center gap-4 mt-3">
+                   <div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_10px_#a855f7]" />
+                   <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.5em] italic">Institutional Integrity: {counts.critical > 0 ? 'Variance Detected' : 'Optimal Synchronicity'}</p>
+                </div>
+             </div>
+          </div>
+        </div>
 
       {/* Risk KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -247,16 +268,18 @@ export default function StudentRiskAnalytics() {
       </div>
 
       {/* Student Cards */}
-      <div className="space-y-3">
-        <AnimatePresence>
+      <div className="space-y-6 relative overflow-hidden p-4">
+        <RecursiveAudit logs={filtered} />
+        <AnimatePresence mode="popLayout">
           {filtered.map(s => <StudentRiskCard key={s.id} student={s} onAction={handleAction} />)}
         </AnimatePresence>
         {filtered.length === 0 && (
-          <div className="text-center py-16 text-slate-600">
-            <Shield size={28} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm font-bold">No students match your filters.</p>
+          <div className="text-center py-24 text-slate-600 relative z-10">
+            <Shield size={40} className="mx-auto mb-6 opacity-20" />
+            <p className="text-lg font-black italic tracking-tighter">No strategic variances detected.</p>
           </div>
         )}
+      </div>
       </div>
     </DashboardLayout>
   );

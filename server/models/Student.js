@@ -6,6 +6,12 @@ const studentSchema = new mongoose.Schema({
         ref: "User",
         required: true
     },
+    collegeId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "College",
+        index: true,
+        required: true
+    },
     enrollmentNumber: {
         type: String,
         unique: true
@@ -51,5 +57,6 @@ const studentSchema = new mongoose.Schema({
         ref: "Project"
     }]
 }, { timestamps: true });
+studentSchema.index({ collegeId: 1, branch: 1, semester: 1 });
 
 module.exports = mongoose.model("Student", studentSchema);

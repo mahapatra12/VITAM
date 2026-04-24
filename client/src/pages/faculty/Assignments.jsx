@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import DashboardLayout from '../../layouts/DashboardLayout';
 import { GlassCard } from '../../components/ui/DashboardComponents';
-import AIChat from '../../components/AIChat';
 
 const INITIAL_ASSIGNMENTS = [
   { id: 1, title: 'AI Ethics - Case Study', course: 'AI-401', dueDate: '2026-03-20', sub: 45, max: 52, status: 'Active' },
@@ -113,7 +112,6 @@ export default function FacultyAssignments() {
         </AnimatePresence>
       </div>
 
-      <AIChat role="faculty" />
     </DashboardLayout>
   );
 }

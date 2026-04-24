@@ -1,190 +1,509 @@
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Suspense, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
 import {
-  Server, Shield, Activity, HardDrive, Cpu, Wifi, AlertTriangle,
-  Terminal, Database, X, Zap, RefreshCcw, DatabaseZap
+  CheckCircle2,
+  ClipboardPlus,
+  Copy,
+  Database,
+  DatabaseZap,
+  HardDrive,
+  KeyRound,
+  Lock,
+  RefreshCcw,
+  Server,
+  Shield,
+  Users,
+  UserPlus,
+  Wifi
 } from 'lucide-react';
 import api from '../../utils/api';
 import DashboardLayout from '../../layouts/DashboardLayout';
-import { StatCard, GlassCard } from '../../components/ui/DashboardComponents';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell, Legend
-} from 'recharts';
-import AIChat from '../../components/AIChat';
+import { GlassCard, GlassSkeleton, StatCard } from '../../components/ui/DashboardComponents';
+import WorkspaceHero from '../../components/ui/WorkspaceHero';
+import { useToast } from '../../components/ui/ToastSystem';
+import ActionDialog from '../../components/ui/ActionDialog';
+import DeferredSection from '../../components/ui/DeferredSection';
+import { useHealth } from '../../context/HealthContext';
+import { useNavigate } from 'react-router-dom';
+import { writeClipboardText } from '../../utils/clipboard';
+import lazySimple from '../../utils/lazySimple';
+import { cancelIdleTask, scheduleIdleTask } from '../../utils/idleTask';
 
-const CPU_DATA = [
-  { time: '10:00', load: 45 }, { time: '10:05', load: 52 },
-  { time: '10:10', load: 88 }, { time: '10:15', load: 61 },
-  { time: '10:20', load: 43 }, { time: '10:25', load: 48 },
-  { time: '10:30', load: 94 }, { time: '10:35', load: 72 },
+const ROLE_OPTIONS = [
+  { value: 'STUDENT', label: 'Student' },
+  { value: 'FACULTY', label: 'Faculty' },
+  { value: 'admin', label: 'Admin' },
+  { value: 'chairman', label: 'Chairman' },
+  { value: 'director', label: 'Director' }
 ];
 
-const MEMORY_DATA = [
-  { time: '10:00', usage: 62 }, { time: '10:05', usage: 64 },
-  { time: '10:10', usage: 68 }, { time: '10:15', usage: 65 },
-  { time: '10:20', usage: 61 }, { time: '10:25', usage: 63 },
-  { time: '10:30', usage: 78 }, { time: '10:35', usage: 71 },
+const ADMIN_SUBROLE_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'principal', label: 'Principal' },
+  { value: 'vice_principal', label: 'Vice Principal' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'hod', label: 'HOD' },
+  { value: 'exam', label: 'Exam' },
+  { value: 'placement', label: 'Placement' },
+  { value: 'bus', label: 'Bus' }
 ];
 
-const API_TRAFFIC = [
-  { hour: '08:00', requests: 1200 }, { hour: '09:00', requests: 4500 },
-  { hour: '10:00', requests: 8900 }, { hour: '11:00', requests: 5200 },
-  { hour: '12:00', requests: 3100 }, { hour: '13:00', requests: 2800 },
-];
+const AdminObservabilitySection = lazySimple(() => import('./sections/AdminObservabilitySection'));
 
-const SECURITY_LOGS = [
-  { id: 1, time: '10:31:42 AM', event: 'Failed Auth Attempt', ip: '192.168.1.104', threat: 'medium', agent: 'Unknown' },
-  { id: 2, time: '10:28:15 AM', event: 'MFA Fallback Triggered', ip: '10.0.0.4', threat: 'low', agent: 'Chairman' },
-  { id: 3, time: '10:15:02 AM', event: 'Excessive DB Queries', ip: '172.16.0.45', threat: 'high', agent: 'API Route /sync' },
-  { id: 4, time: '09:54:11 AM', event: 'Invalid JWT Format', ip: '192.168.1.199', threat: 'medium', agent: 'Cron Bot' },
-];
+const formatRoleLabel = (role, subRole) => {
+  const base = String(role || '').toLowerCase();
+  const detail = String(subRole || 'none').toLowerCase();
 
-const TS = { contentStyle: { backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: 12 }, itemStyle: { color: '#e2e8f0' }, labelStyle: { color: '#94a3b8', fontWeight: 700 } };
+  if (base === 'admin' && detail !== 'none') {
+    return `ADMIN (${detail.replace(/_/g, ' ').toUpperCase()})`;
+  }
+
+  return String(role || 'unknown').replace(/_/g, ' ').toUpperCase();
+};
+
+const createSuggestedPassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$';
+  let out = '';
+  for (let i = 0; i < 12; i += 1) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return out;
+};
 
 export default function AdminDashboard() {
+  const { push } = useToast();
+  const { health } = useHealth();
+  const navigate = useNavigate();
   const [sysAI, setSysAI] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [seedDialogOpen, setSeedDialogOpen] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [provisionedPassword, setProvisionedPassword] = useState('');
+  const [recentUsers, setRecentUsers] = useState([]);
+  const [userForm, setUserForm] = useState({
+    name: '',
+    email: '',
+    role: 'STUDENT',
+    subRole: 'none',
+    autoGeneratePassword: true,
+    password: ''
+  });
+
+  const isAdminRole = userForm.role === 'admin';
+  const canCreateUser = useMemo(() => {
+    const hasIdentity = userForm.name.trim().length >= 2 && userForm.email.trim().length >= 5;
+    const hasPassword = userForm.autoGeneratePassword || userForm.password.trim().length >= 6;
+    const hasSubRole = !isAdminRole || Boolean(userForm.subRole);
+    return hasIdentity && hasPassword && hasSubRole;
+  }, [isAdminRole, userForm]);
+
+  const applyRecentUsers = (payload) => {
+    const users = Array.isArray(payload) ? payload : [];
+    setRecentUsers(users.slice(0, 8));
+  };
+
+  const loadUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const { data } = await api.get('/admin/users', {
+        params: { limit: 50 },
+        cache: {
+          maxAge: 30000,
+          staleWhileRevalidate: true,
+          revalidateAfter: 12000,
+          persist: true,
+          onUpdate: (response) => applyRecentUsers(response?.data)
+        }
+      });
+      applyRecentUsers(data);
+    } catch (err) {
+      push({
+        type: 'warning',
+        title: 'User registry unavailable',
+        body: err.response?.data?.msg || err.message || 'Unable to load users right now.'
+      });
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   useEffect(() => {
     simulateAI();
+    void loadUsers();
+  }, []);
+
+  useEffect(() => {
+    const handle = scheduleIdleTask(() => {
+      void AdminObservabilitySection.preload?.();
+    }, 1400, 450);
+
+    return () => cancelIdleTask(handle);
   }, []);
 
   const simulateAI = () => {
     setRefreshing(true);
     setSysAI('');
     setTimeout(() => {
-      setSysAI('SysOps AI: Core systems running stable. CPU spike detected at 10:30 AM due to automated roster sync — resolved. MongoDB cluster latency at 24ms. Blocked 3 rapid malicious auth attempts from 192.168.1.104. Recommend upscaling API Gateway container before tomorrow\'s expected traffic surge during exam registrations.');
+      setSysAI('Institutional infrastructure analysis complete. Network latency is within optimal bounds (24ms). Security layer flagged 3 unauthorized access attempts and institutional mitigation protocols remain active. Automated record synchronization contributed to temporary CPU load increase, so load balancing is recommended during the next sync window.');
       setRefreshing(false);
     }, 1500);
   };
 
-  const threatColor = (t) => t === 'high' ? 'text-red-400 bg-red-500/10' : t === 'medium' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10';
+  const handleSyncTelemetry = async () => {
+    setSeeding(true);
+    try {
+      await api.post('/admin/seed-telemetry');
+      setSeedDialogOpen(false);
+      push({
+        type: 'success',
+        title: 'System Infrastructure Sync',
+        body: 'Institutional datasets and system analytics have been synchronized successfully.'
+      });
+    } catch (err) {
+      push({
+        type: 'error',
+        title: 'Synchronization Failed',
+        body: err.response?.data?.msg || err.message || 'Unable to synchronize institutional datasets at this time.'
+      });
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const updateUserForm = (field, value) => {
+    setUserForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'role' && value !== 'admin') {
+        next.subRole = 'none';
+      }
+      if (field === 'autoGeneratePassword' && value) {
+        next.password = '';
+      }
+      return next;
+    });
+  };
+
+  const handleCreateUser = async (event) => {
+    event.preventDefault();
+    if (!canCreateUser || creatingUser) return;
+
+    setCreatingUser(true);
+    setProvisionedPassword('');
+    setCopiedPassword(false);
+
+    try {
+      const payload = {
+        name: userForm.name.trim(),
+        email: userForm.email.trim().toLowerCase(),
+        role: userForm.role,
+        subRole: isAdminRole ? userForm.subRole : 'none',
+        autoGeneratePassword: userForm.autoGeneratePassword
+      };
+
+      if (!userForm.autoGeneratePassword) {
+        payload.password = userForm.password.trim();
+      }
+
+      const { data } = await api.post('/admin/users', payload);
+      setProvisionedPassword(data?.provisionedPassword || '');
+      setUserForm({
+        name: '',
+        email: '',
+        role: 'STUDENT',
+        subRole: 'none',
+        autoGeneratePassword: true,
+        password: ''
+      });
+      await loadUsers();
+      push({
+        type: 'success',
+        title: 'Portal user created',
+        body: data?.provisionedPassword
+          ? 'User created. Share the temporary password securely and enforce password reset on first login.'
+          : 'User created successfully.'
+      });
+    } catch (err) {
+      push({
+        type: 'error',
+        title: 'Failed to create user',
+        body: err.response?.data?.msg || err.message || 'Unable to create user right now.'
+      });
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const handleCopyPassword = async () => {
+    if (!provisionedPassword) return;
+    try {
+      await writeClipboardText(provisionedPassword);
+      setCopiedPassword(true);
+      setTimeout(() => setCopiedPassword(false), 1200);
+    } catch (err) {
+      push({
+        type: 'warning',
+        title: 'Clipboard unavailable',
+        body: err.message || 'Unable to copy temporary password.'
+      });
+    }
+  };
 
   return (
     <DashboardLayout title="System Administration" role="ADMIN">
-      <div className="mb-8 flex justify-between items-start flex-wrap gap-4">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.4em] text-red-500 mb-1">Root Access</p>
-          <h2 className="text-3xl font-black text-white tracking-tight">System Infrastructure</h2>
-          <p className="text-slate-400 font-medium mt-1">Live server telemetry, API traffic, and security orchestration</p>
-        </div>
-        <div className="flex gap-3">
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            onClick={async () => {
-              if (window.confirm("WARNING: This will clear existing Fees/Attendance/Results and re-seed with institutional telemetry. Proceed?")) {
-                setSeeding(true);
-                try {
-                  await api.post('/admin/seed-telemetry');
-                  alert("Institutional telemetry seeded successfully!");
-                } catch (err) {
-                  alert("Seeding failed: " + (err.response?.data?.msg || err.message));
-                } finally {
-                  setSeeding(false);
-                }
-              }
-            }} disabled={seeding}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-blue-600/20 border border-blue-500/30 text-blue-400 text-sm font-black hover:bg-blue-500/30 transition-all disabled:opacity-50">
-            <DatabaseZap size={16} className={seeding ? "animate-pulse" : ""} />
-            {seeding ? 'Seeding...' : 'Seed Data'}
-          </motion.button>
-          
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            onClick={simulateAI} disabled={refreshing}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-red-600/20 border border-red-500/30 text-red-400 text-sm font-black hover:bg-red-500/30 transition-all disabled:opacity-50">
-            <RefreshCcw size={16} className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? 'Scanning...' : 'Run Diagnostics'}
-          </motion.button>
-        </div>
+      <WorkspaceHero
+        eyebrow="Admin workspace"
+        title="Infrastructure command center"
+        description="Monitor operational health, inspect security posture, and coordinate platform-wide diagnostics from a cleaner control room built for fast, high-confidence decisions."
+        icon={Server}
+        badges={[
+          health.isHealthy ? 'Integrity optimal' : 'Security attention needed',
+          `Variance ${health.variance}%`,
+          'Diagnostics active'
+        ]}
+        actions={[
+          {
+            label: seeding ? 'Syncing...' : 'Synchronize Datasets',
+            icon: DatabaseZap,
+            tone: 'secondary',
+            disabled: seeding,
+            onClick: () => setSeedDialogOpen(true)
+          },
+          {
+            label: refreshing ? 'Analyzing...' : 'Run Diagnostics',
+            icon: RefreshCcw,
+            tone: 'primary',
+            disabled: refreshing,
+            onClick: simulateAI
+          }
+        ]}
+        stats={[
+          { label: 'Uptime', value: '99.98%' },
+          { label: 'Variance', value: `${health.variance}%` },
+          { label: 'AI state', value: refreshing ? 'Refreshing' : 'Ready' },
+          { label: 'Security posture', value: health.isHealthy ? 'Protected' : 'Reviewing' }
+        ]}
+        aside={(
+          <button
+            type="button"
+            onClick={() => navigate('/admin/security')}
+            className="glass-panel h-full w-full p-6 text-left transition-all hover:border-blue-500/30"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.24em] text-slate-400">
+                  Security State
+                </p>
+                <h3 className="mt-2 text-2xl font-black text-white">
+                  {health.isHealthy ? 'System integrity is optimal' : 'Active anomaly review'}
+                </h3>
+              </div>
+              <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${health.isHealthy ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/20 bg-rose-500/10 text-rose-300'}`}>
+                <Lock size={20} />
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  System variance
+                </p>
+                <p className={`mt-2 text-2xl font-black ${health.variance > 70 ? 'text-rose-300' : 'text-emerald-300'}`}>
+                  {health.variance}%
+                </p>
+              </div>
+              <div className="surface-card p-4">
+                <p className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-slate-400">
+                  Next action
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-200">
+                  Open the security command room to review alerts, session controls, and passkey readiness.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center gap-2 text-sm font-bold text-blue-200">
+              Review security command room
+              <CheckCircle2 size={16} />
+            </div>
+          </button>
+        )}
+      />
+
+      <div className="mb-12 grid grid-cols-2 gap-8 lg:grid-cols-4">
+        <StatCard title="Institutional Uptime" value="99.98%" icon={Server} color="bg-emerald-600" trend="Stable" />
+        <StatCard title="Network Traffic" value="89.2k" icon={Wifi} color="bg-blue-600" trend="+12.4%" />
+        <StatCard title="Memory Allocation" value="12.4GB" icon={HardDrive} color="bg-indigo-600" trend="71.2%" />
+        <StatCard title="Security Events" value="14" icon={Shield} color="bg-rose-600" trend="Clear" />
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-        <StatCard title="Uptime" value="99.98%" icon={Server} color="bg-emerald-500" trend="Stable" />
-        <StatCard title="Avg CPU Load" value="54%" icon={Cpu} color="bg-blue-500" />
-        <StatCard title="Memory Usage" value="12.4 GB" icon={HardDrive} color="bg-purple-500" trend="71%" />
-        <StatCard title="Blocked Threats" value="14" icon={Shield} color="bg-red-500" trend="+3" />
-      </div>
+      <DeferredSection className="mb-10" minHeight={360}>
+        <Suspense fallback={<GlassSkeleton className="h-[760px]" />}>
+          <AdminObservabilitySection />
+        </Suspense>
+      </DeferredSection>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <GlassCard title="CPU Telemetry" subtitle="Live processor load distribution (%)" icon={Cpu}>
-          <div className="h-[200px] mt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={CPU_DATA}>
-                <defs>
-                  <linearGradient id="cpuGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="time" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} domain={[0, 100]} />
-                <Tooltip {...TS} />
-                <Area type="monotone" dataKey="load" name="CPU Load (%)" stroke="#3b82f6" strokeWidth={2.5} fill="url(#cpuGrad)" dot={{ r: 3, fill: '#3b82f6' }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
+      <div className="mb-10 grid grid-cols-1 gap-10 xl:grid-cols-[1.4fr_1fr]">
+        <GlassCard
+          title="User Onboarding"
+          subtitle="Create new college portal accounts with role-aware defaults and secure temporary access."
+          icon={UserPlus}
+        >
+          <form onSubmit={handleCreateUser} className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <label className="space-y-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">Full Name</span>
+              <input
+                type="text"
+                className="premium-input py-3"
+                placeholder="Enter user full name"
+                value={userForm.name}
+                onChange={(event) => updateUserForm('name', event.target.value)}
+                required
+              />
+            </label>
 
-        <GlassCard title="Memory Pool Utilization" subtitle="RAM pressure over time (GB)" icon={HardDrive}>
-          <div className="h-[200px] mt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={MEMORY_DATA}>
-                <defs>
-                  <linearGradient id="memGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="time" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} domain={[0, 100]} />
-                <Tooltip {...TS} />
-                <Area type="monotone" dataKey="usage" name="Memory (%)" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#memGrad)" dot={{ r: 3, fill: '#8b5cf6' }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
-      </div>
+            <label className="space-y-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">Institution Email</span>
+              <input
+                type="email"
+                className="premium-input py-3"
+                placeholder="name@vitam.edu.in"
+                value={userForm.email}
+                onChange={(event) => updateUserForm('email', event.target.value.trimStart())}
+                onBlur={() => updateUserForm('email', userForm.email.trim().toLowerCase())}
+                required
+              />
+            </label>
 
-      {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <GlassCard title="API Gateway Traffic" subtitle="Network requests per hour" icon={Wifi}>
-          <div className="h-[200px] mt-3">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={API_TRAFFIC}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                <XAxis dataKey="hour" tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
-                <YAxis tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                <Tooltip {...TS} />
-                <Bar dataKey="requests" name="Requests" fill="#10b981" radius={[4, 4, 0, 0]}>
-                  {API_TRAFFIC.map((entry, index) => (
-                    <Cell key={index} fill={entry.requests > 8000 ? '#ef4444' : entry.requests > 4000 ? '#f59e0b' : '#10b981'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </GlassCard>
+            <label className="space-y-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">Role</span>
+              <select
+                className="premium-input py-3"
+                value={userForm.role}
+                onChange={(event) => updateUserForm('role', event.target.value)}
+              >
+                {ROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <GlassCard title="Active Security Log" subtitle="Real-time threat monitoring firewall" icon={Shield}>
-          <div className="mt-3 space-y-2 overflow-y-auto max-h-[200px] pr-2">
-            {SECURITY_LOGS.map((log) => (
-              <div key={log.id} className="flex items-center gap-3 p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-black text-sm truncate flex items-center gap-2">
-                    <Terminal size={12} className="text-slate-500" />
-                    {log.event}
-                  </p>
-                  <p className="text-slate-400 text-xs font-mono mt-0.5">{log.ip} · {log.agent}</p>
+            <label className="space-y-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-slate-400">Admin Sub-role</span>
+              <select
+                className="premium-input py-3"
+                value={userForm.subRole}
+                onChange={(event) => updateUserForm('subRole', event.target.value)}
+                disabled={!isAdminRole}
+              >
+                {ADMIN_SUBROLE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div className="space-y-3 md:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={userForm.autoGeneratePassword}
+                  onChange={(event) => updateUserForm('autoGeneratePassword', event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-600 bg-slate-900"
+                />
+                Auto-generate temporary password
+              </label>
+
+              {!userForm.autoGeneratePassword && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+                  <input
+                    type="text"
+                    className="premium-input py-3"
+                    placeholder="Set temporary password (min 6 chars)"
+                    value={userForm.password}
+                    onChange={(event) => updateUserForm('password', event.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => updateUserForm('password', createSuggestedPassword())}
+                    className="btn-secondary justify-center px-4 py-3"
+                  >
+                    <KeyRound size={14} />
+                    Generate
+                  </button>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <span className="text-slate-500 text-[10px] font-mono block mb-1">{log.time}</span>
-                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded ${threatColor(log.threat)}`}>
-                    {log.threat}
+              )}
+            </div>
+
+            <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+              <button
+                type="submit"
+                disabled={!canCreateUser || creatingUser}
+                className="btn-primary px-5 py-3 disabled:opacity-60"
+              >
+                <ClipboardPlus size={15} />
+                {creatingUser ? 'Creating user...' : 'Create User Account'}
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/users')}
+                className="btn-secondary px-5 py-3"
+              >
+                <Users size={15} />
+                Open User Registry
+              </button>
+            </div>
+          </form>
+
+          {provisionedPassword && (
+            <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.2em] text-emerald-200">
+                Temporary Password
+              </p>
+              <div className="mt-2 flex items-center gap-2 rounded-lg bg-slate-950/70 p-2">
+                <code className="flex-1 truncate text-sm text-emerald-200">{provisionedPassword}</code>
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  className="btn-secondary px-3 py-1.5 text-xs"
+                >
+                  <Copy size={13} />
+                  {copiedPassword ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          )}
+        </GlassCard>
+
+        <GlassCard
+          title="Recent User Activity"
+          subtitle="Latest identities provisioned in the portal"
+          icon={Users}
+        >
+          <div className="mt-4 space-y-3">
+            {loadingUsers && (
+              <p className="text-sm text-slate-400">Loading users...</p>
+            )}
+            {!loadingUsers && recentUsers.length === 0 && (
+              <p className="text-sm text-slate-400">No users available yet.</p>
+            )}
+            {!loadingUsers && recentUsers.map((portalUser) => (
+              <div
+                key={portalUser.id || portalUser._id || portalUser.email}
+                className="rounded-xl border border-white/5 bg-slate-950/60 p-3"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-white">{portalUser.name}</p>
+                    <p className="truncate text-[11px] text-slate-400">{portalUser.email}</p>
+                  </div>
+                  <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-blue-200">
+                    {formatRoleLabel(portalUser.role, portalUser.subRole)}
                   </span>
                 </div>
               </div>
@@ -193,21 +512,36 @@ export default function AdminDashboard() {
         </GlassCard>
       </div>
 
-      {/* AI System Ops */}
-      <GlassCard title="SysOps AI — Infrastructure Intelligence" subtitle="Autonomous structural scanning & network health" icon={Database}>
-        <div className="mt-3 min-h-[60px]">
-          {sysAI ? (
-            <p className="text-red-400 font-medium leading-relaxed text-sm">{sysAI}</p>
-          ) : (
-            <span className="text-slate-500 italic flex items-center gap-2 text-sm">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-              Scanning institutional backend mesh...
-            </span>
-          )}
+      <GlassCard title="System Intelligence" subtitle="Autonomous structural analysis and health monitoring" icon={Database} className="mb-10">
+        <div className="mt-6">
+          <AnimatePresence mode="wait">
+            {sysAI ? (
+              <p className="text-base leading-relaxed text-blue-300">
+                "{sysAI}"
+              </p>
+            ) : (
+              <div className="flex items-center gap-4">
+                <div className="h-2 w-2 animate-ping rounded-full bg-blue-500 shadow-[0_0_10px_#3b82f6]" />
+                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500">
+                  Analyzing Institutional Architecture...
+                </span>
+              </div>
+            )}
+          </AnimatePresence>
         </div>
       </GlassCard>
 
-      <AIChat role="sysadmin" />
+      <ActionDialog
+        open={seedDialogOpen}
+        title="Synchronize Institutional Datasets"
+        description="Refresh demo analytics and re-synchronize infrastructure telemetry for fees, attendance, and performance monitoring."
+        confirmLabel="Synchronize"
+        cancelLabel="Discard"
+        tone="warning"
+        loading={seeding}
+        onClose={() => setSeedDialogOpen(false)}
+        onConfirm={handleSyncTelemetry}
+      />
     </DashboardLayout>
   );
 }
