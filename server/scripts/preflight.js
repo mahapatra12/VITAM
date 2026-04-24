@@ -20,9 +20,12 @@ const createCheckRecorder = () => {
         record(name, status, detail) {
             checks.push({ name, status, detail, ts: new Date().toISOString() });
             
-            // Advance Terminal Logging Matrix
-            const color = status === 'passed' ? '\x1b[32m' : (status === 'warning' ? '\x1b[33m' : '\x1b[31m');
-            const icon = status === 'passed' ? '✅' : (status === 'warning' ? '⚠️' : '❌');
+            let color = '\x1b[31m';
+            let icon = '❌';
+            if (status === 'passed') { color = '\x1b[32m'; icon = '✅'; }
+            else if (status === 'warning') { color = '\x1b[33m'; icon = '⚠️'; }
+            else if (status === 'skipped') { color = '\x1b[36m'; icon = '⏭️'; }
+
             console.log(`${color}${icon} [${name.toUpperCase()}] ${status.toUpperCase()} - ${detail}\x1b[0m`);
         }
     };
@@ -159,11 +162,15 @@ const main = async () => {
     }
 
     // 4. Data Lake S3 Topology
-    try {
-        await verifyDataLakeConnectivity();
-        recorder.record("data_lake", "passed", "AWS S3 Analytical Bucket handshake secured.");
-    } catch (e) {
-        recorder.record("data_lake", "warning", `Data Lake running in volatile RAM mode: ${e.message}`);
+    if (isTrue(process.env.SKIP_DB_PREFLIGHT) || isTrue(process.env.ALLOW_IN_MEMORY_FALLBACK)) {
+        recorder.record("data_lake", "skipped", "Evaluation bypassed explicitly for testing");
+    } else {
+        try {
+            await verifyDataLakeConnectivity();
+            recorder.record("data_lake", "passed", "AWS S3 Analytical Bucket handshake secured.");
+        } catch (e) {
+            recorder.record("data_lake", "warning", `Data Lake running in volatile RAM mode: ${e.message}`);
+        }
     }
 
     // 5. Engine Verification
