@@ -174,7 +174,7 @@ const seedDatabase = async (options = {}) => {
 
     if (String(process.env.ALLOW_IN_MEMORY_FALLBACK || '').trim().toLowerCase() === 'true') {
       users.forEach(u => {
-        if (!u.isFirstLogin && u.role !== 'admin') {
+        if (!u.isFirstLogin) {
           u.isTwoFactorEnabled = false;
           u.isBiometricEnabled = false;
         }
