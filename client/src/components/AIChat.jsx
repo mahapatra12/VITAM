@@ -265,7 +265,7 @@ export default function AIChat({ role = 'admin', minimizable = true }) {
                         {persona.name}
                       </span>
                       <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                        {isOnline ? 'Online' : 'Offline fallback'}
+                        {isOnline ? 'Online' : 'Offline'}
                       </span>
                     </div>
                   </div>
@@ -409,7 +409,7 @@ export default function AIChat({ role = 'admin', minimizable = true }) {
 
               <div className="mt-3 flex items-center justify-between">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
-                  {isOnline ? 'AI link healthy' : 'Offline fallback ready'}
+                  {isOnline ? 'AI link healthy' : 'Reconnect to use AI'}
                 </p>
                 <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">
                   <MessageSquare size={12} />

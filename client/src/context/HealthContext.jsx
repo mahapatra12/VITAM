@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, startTransition } from 'react';
 import axios from 'axios';
-import { Activity, Cpu, Database, RefreshCw, Server, Briefcase, Box } from 'lucide-react';
+import { Cpu, Database, Server, Briefcase, Box } from 'lucide-react';
 import { getPendingMutations, removeMutation, queueMutation } from '../utils/mutationQueue';
 import { recordAudit } from '../utils/auditVault';
 import Telemetry from '../utils/telemetry';
@@ -289,7 +289,6 @@ export const HealthProvider = ({ children }) => {
     return (
         <HealthContext.Provider value={{ health, checkHealth, syncMutations, initiateConsensus }}>
             {children}
-            <SystemPulseDock health={health} />
             {ENABLE_DIAGNOSTIC_OVERLAYS && (
                 <>
                     <VarianceGuard variance={health.variance} />
@@ -298,33 +297,6 @@ export const HealthProvider = ({ children }) => {
             )}
         </HealthContext.Provider>
     );
-};
-
-const formatHealthTimestamp = (value) => {
-    if (!value) {
-        return 'just now';
-    }
-
-    const timestamp = new Date(value).getTime();
-    if (!Number.isFinite(timestamp)) {
-        return 'just now';
-    }
-
-    const diffMs = Math.max(0, Date.now() - timestamp);
-    const diffSec = Math.floor(diffMs / 1000);
-    if (diffSec < 10) {
-        return 'just now';
-    }
-    if (diffSec < 60) {
-        return `${diffSec}s ago`;
-    }
-
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) {
-        return `${diffMin}m ago`;
-    }
-
-    return `${Math.floor(diffMin / 60)}h ago`;
 };
 
 const SectorMonitor = ({ services }) => {
@@ -358,66 +330,4 @@ const VarianceGuard = ({ variance }) => (
         </div>
     ) : null
 );
-
-const SystemPulseDock = ({ health }) => {
-    const pulseItems = [];
-
-    if (!health?.isHealthy) {
-        pulseItems.push({
-            key: 'health',
-            icon: Activity,
-            tone: 'border-amber-500/25 bg-amber-500/10 text-amber-200',
-            label: health?.isLocalMode ? 'Offline fallback' : 'Platform degraded'
-        });
-    }
-
-    if (health?.isLocalMode) {
-        pulseItems.push({
-            key: 'local',
-            icon: Cpu,
-            tone: 'border-blue-500/25 bg-blue-500/10 text-blue-200',
-            label: 'Local mode active'
-        });
-    }
-
-    if (health?.isSyncing) {
-        pulseItems.push({
-            key: 'syncing',
-            icon: RefreshCw,
-            tone: 'border-blue-500/25 bg-blue-500/10 text-blue-200',
-            label: `Syncing ${health.pendingSyncCount || 0} actions`,
-            spin: true
-        });
-    } else if ((health?.pendingSyncCount || 0) > 0) {
-        pulseItems.push({
-            key: 'queued',
-            icon: Database,
-            tone: 'border-slate-500/25 bg-slate-800/80 text-slate-200',
-            label: `${health.pendingSyncCount} actions queued`
-        });
-    }
-
-    if (pulseItems.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="fixed bottom-6 left-6 z-[9990] max-w-[calc(100vw-3rem)] rounded-2xl border border-white/10 bg-slate-950/80 px-3 py-3 shadow-2xl backdrop-blur-xl transition-all duration-200">
-            <div className="flex flex-wrap items-center gap-2">
-                {pulseItems.map((item) => (
-                    <div
-                        key={item.key}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-[11px] font-bold ${item.tone}`}
-                    >
-                        <item.icon size={14} className={item.spin ? 'animate-spin' : ''} />
-                        <span>{item.label}</span>
-                    </div>
-                ))}
-            </div>
-            <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Last checked {formatHealthTimestamp(health?.lastChecked)}
-            </p>
-        </div>
-    );
-};
 
