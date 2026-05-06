@@ -15,8 +15,8 @@ const updateAdminPassword = async () => {
         await mongoose.connect(uri);
         const User = require('../models/User'); // Load user model dynamically
         
-        console.log("Hashing new password: AdminPassword123! ...");
-        const newPasswordHash = await bcrypt.hash('AdminPassword123!', 10);
+        console.log("Hashing new password: AdminPassword123!* ...");
+        const newPasswordHash = await bcrypt.hash('AdminPassword123!*', 10);
         
         const result = await User.updateOne(
             { email: 'admin@vitam.edu' },

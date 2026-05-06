@@ -9,6 +9,12 @@ const College = require("../models/College");
 const { toSafeUser } = require("../utils/safeUser");
 const { normalizeImageUrl } = require("../utils/mediaConfig");
 const { respondWithServerError } = require("../utils/respondWithServerError");
+const {
+    buildTotpAuthUrl,
+    buildTotpLabel,
+    generateTotpSecret,
+    normalizeTotpSecret
+} = require("../utils/totpProvisioning");
 let OAuth2Client = null;
 try {
     ({ OAuth2Client } = require("google-auth-library"));
@@ -1032,12 +1038,12 @@ exports.register = async (req, res) => {
             collegeId: req.tenant ? req.tenant.id : undefined
         });
 
-        const secret = speakeasy.generateSecret({ name: `VITAM-AI (${email})`, issuer: "VITAM AI" });
-        user.twoFactorSecret = secret.base32;
+        const secret = generateTotpSecret(email);
+        user.twoFactorSecret = secret;
 
         await user.save();
 
-        const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+        const qrCodeUrl = await qrcode.toDataURL(buildTotpAuthUrl(email, secret));
         res.status(201).json({ msg: "User registered. Please setup 2FA.", qrCode: qrCodeUrl, userId: user._id });
     } catch (err) {
         if (err?.status && err?.code) {
@@ -1094,12 +1100,13 @@ exports.login = async (req, res) => {
         const requiresBiometric = !user.isFirstLogin && user.isBiometricEnabled && webAuthnEnabled;
         const requires2FA = !user.isFirstLogin && user.isTwoFactorEnabled;
         const needsTotpProvisioning = user.isFirstLogin || requires2FA;
-        const hadTwoFactorSecret = Boolean(user.twoFactorSecret);
+        let totpPlainSecret = normalizeTotpSecret(user.twoFactorSecret);
+        const hadTwoFactorSecret = Boolean(totpPlainSecret);
 
         // Generate / reuse secret only when the active flow actually needs TOTP.
-        if (needsTotpProvisioning && !user.twoFactorSecret) {
-            const secret = speakeasy.generateSecret({ name: `VITAM AI (${email})`, issuer: "VITAM AI" });
-            user.twoFactorSecret = secret.base32;
+        if (needsTotpProvisioning && !totpPlainSecret) {
+            totpPlainSecret = generateTotpSecret(email);
+            user.twoFactorSecret = totpPlainSecret;
         }
         const pendingAuthToken = (user.isFirstLogin || requires2FA || requiresBiometric)
             ? await issuePendingAuthToken(
@@ -1134,16 +1141,11 @@ exports.login = async (req, res) => {
         let totpSecret = null;
         let totpLabel = null;
         const needsTotpEnrollment = user.isFirstLogin || (requires2FA && !hadTwoFactorSecret);
-        if (needsTotpProvisioning && user.twoFactorSecret) {
-            const otpauthUrl = speakeasy.otpauthURL({
-                secret: user.twoFactorSecret,
-                label: encodeURIComponent(`VITAM AI (${email})`),
-                issuer: "VITAM AI",
-                encoding: "base32",
-            });
+        if (needsTotpProvisioning && totpPlainSecret) {
+            const otpauthUrl = buildTotpAuthUrl(email, totpPlainSecret);
             qrCodeDataUri = needsTotpEnrollment ? await qrcode.toDataURL(otpauthUrl) : null;
-            totpSecret = needsTotpEnrollment ? user.twoFactorSecret : null;
-            totpLabel = `VITAM AI (${email})`;
+            totpSecret = needsTotpEnrollment ? totpPlainSecret : null;
+            totpLabel = buildTotpLabel(email);
         }
 
         res.json({
@@ -1251,8 +1253,16 @@ exports.verify2FA = async (req, res) => {
             return res.status(429).json({ msg: "Too many invalid codes. Try again in a few minutes." });
         }
 
+        const totpPlainSecret = normalizeTotpSecret(user.twoFactorSecret);
+        if (!totpPlainSecret) {
+            return res.status(409).json({
+                code: "TOTP_ENROLLMENT_REQUIRED",
+                msg: "2FA setup is required again. Please sign in and scan your personal authenticator QR code."
+            });
+        }
+
         const verified = speakeasy.totp.verify({
-            secret: user.twoFactorSecret,
+            secret: totpPlainSecret,
             encoding: "base32",
             token,
             window: TOTP_WINDOW,

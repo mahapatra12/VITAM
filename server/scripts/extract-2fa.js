@@ -1,5 +1,4 @@
 const mongoose = require("mongoose");
-const speakeasy = require("speakeasy");
 const qrcode = require("qrcode");
 const fs = require("fs");
 const path = require("path");
@@ -9,6 +8,11 @@ const dotenv = require("dotenv");
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
 const User = require("../models/User");
+const {
+    buildTotpAuthUrl,
+    generateTotpSecret,
+    normalizeTotpSecret
+} = require("../utils/totpProvisioning");
 
 const DEFAULT_EMAILS = [
     "admin@vitam.edu",
@@ -91,6 +95,7 @@ async function run() {
 
         const results = [];
         let currentIndex = 0;
+        let updatedCount = 0;
 
         for (const user of targetUsers) {
             currentIndex++;
@@ -99,27 +104,23 @@ async function run() {
             let secretObj;
             let newlyGenerated = false;
 
-            if (!user.twoFactorSecret) {
-                const secret = speakeasy.generateSecret({ name: `VITAM AI (${user.email})`, issuer: "VITAM AI" });
-                user.twoFactorSecret = secret.base32;
+            const existingSecret = normalizeTotpSecret(user.twoFactorSecret);
+            if (!existingSecret) {
+                const secret = generateTotpSecret(user.email);
+                user.twoFactorSecret = secret;
                 user.isTwoFactorEnabled = true;
 
                 // Mongoose hook transparently converts this to AES-256 before disk allocation
                 await user.save();
 
-                secretObj = user.twoFactorSecret;
+                secretObj = secret;
                 newlyGenerated = true;
                 updatedCount++;
             } else {
-                secretObj = user.twoFactorSecret;
+                secretObj = existingSecret;
             }
 
-            const otpauthUrl = speakeasy.otpauthURL({
-                secret: secretObj,
-                label: `VITAM AI: ${user.email}`,
-                issuer: "VITAM AI",
-                encoding: "base32"
-            });
+            const otpauthUrl = buildTotpAuthUrl(user.email, secretObj);
 
             const qrDataUrl = await qrcode.toDataURL(otpauthUrl);
             results.push({ email: user.email, qrDataUrl, secret: secretObj, role: user.role || 'user', isNew: newlyGenerated });

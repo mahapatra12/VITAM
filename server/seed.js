@@ -13,6 +13,7 @@ const Fleet = require('./models/Fleet');
 const Room = require('./models/Room');
 const Complaint = require('./models/Complaint');
 const Transaction = require('./models/Transaction');
+const { generateTotpSecret } = require('./utils/totpProvisioning');
 
 const seedDatabase = async (options = {}) => {
   const { forceReset = false } = options;
@@ -59,18 +60,19 @@ const seedDatabase = async (options = {}) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash('admin123', salt);
+    const hashedAdminPassword = await bcrypt.hash('AdminPassword123!*', salt);
 
     const users = [
       {
         name: 'System Admin',
         email: 'admin@vitam.edu',
-        password: hashedPassword,
+        password: hashedAdminPassword,
         role: 'admin',
         subRole: 'none',
         department: 'Administration',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('admin@vitam.edu'),
         isFirstLogin: true,
         collegeId: defaultCollege._id
       },
@@ -82,7 +84,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'none',
         isTwoFactorEnabled: process.env.ALLOW_IN_MEMORY_FALLBACK !== 'true',
         isBiometricEnabled: process.env.ALLOW_IN_MEMORY_FALLBACK !== 'true',
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('chairman@vitam.edu.in'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       },
@@ -94,7 +96,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'none',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('director@vitam.edu.in'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       },
@@ -106,7 +108,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'principal',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('principal@vitam.edu.in'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       },
@@ -118,7 +120,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'vice_principal',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('viceprincipal@vitam.edu.in'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       },
@@ -130,7 +132,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'finance',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('finance@vitam.edu.in'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       },
@@ -142,7 +144,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'hod',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('hod@vitam.edu'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       },
@@ -154,7 +156,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'none',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('faculty@vitam.edu'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       },
@@ -166,7 +168,7 @@ const seedDatabase = async (options = {}) => {
         subRole: 'none',
         isTwoFactorEnabled: true,
         isBiometricEnabled: true,
-        twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+        twoFactorSecret: generateTotpSecret('student@vitam.edu'),
         isFirstLogin: false,
         collegeId: defaultCollege._id
       }
@@ -182,7 +184,7 @@ const seedDatabase = async (options = {}) => {
       });
     }
 
-    const insertedUsers = await User.insertMany(users);
+    const insertedUsers = await User.create(users);
     console.log(`Successfully seeded ${insertedUsers.length} institutional users.`);
 
     // 1. Seed Finance Telemetry (CFO-AI Material)
@@ -267,7 +269,7 @@ const seedDatabase = async (options = {}) => {
     console.log("Institutional Telemetry (Fee, Attendance, Results, Placements, Scholarships, Fleet, Hostel, Finance) seeded successfully.");
 
     console.log("Institutional Telemetry (Fee, Attendance, Results) seeded successfully.");
-    console.log("Default Password for all: admin123");
+    console.log("Default Passwords: admin@vitam.edu uses AdminPassword123!* ; all other seeded accounts use admin123");
     return {
       seeded: true,
       skipped: false,

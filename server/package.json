@@ -10,6 +10,7 @@
     "start": "node server.js",
     "dev": "node scripts/dev-launcher.js",
     "syntax:check": "node scripts/syntax-check.js",
+    "repair:2fa": "node scripts/repair-2fa-secrets.js",
     "preflight": "node scripts/preflight.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

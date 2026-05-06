@@ -219,11 +219,18 @@ const getDataPrefetcher = (path, user) => {
     '/student/dashboard': () => ([
       api.get('/student/portal', createCacheConfig(DASHBOARD_CACHE_MS))
     ]),
+    '/student/courses': () => ([
+      api.get('/student/portal', createCacheConfig(DASHBOARD_CACHE_MS))
+    ]),
+    '/student/timetable': () => ([
+      api.get('/student/portal', createCacheConfig(DASHBOARD_CACHE_MS))
+    ]),
     '/student/grades': () => ([
+      api.get('/student/portal', createCacheConfig(DASHBOARD_CACHE_MS)),
       api.get('/student/academics', createCacheConfig(DASHBOARD_CACHE_MS))
     ]),
     '/student/fees': () => ([
-      api.get('/student/finance', createCacheConfig(DASHBOARD_CACHE_MS))
+      api.get('/student/portal', createCacheConfig(DASHBOARD_CACHE_MS))
     ]),
     '/student/finance': () => ([
       api.get('/student/finance', createCacheConfig(DASHBOARD_CACHE_MS))

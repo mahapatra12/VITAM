@@ -72,6 +72,7 @@ const startupState = {
     services: {
         defaultTenant: "pending",
         seed: "pending",
+        totpRepair: "pending",
         auditExport: "pending",
         metricsExport: "pending",
         promotionJob: "pending",
@@ -839,6 +840,22 @@ const startServices = async (dbType = "Atlas") => {
             throw error;
         }
     }, { required: true });
+
+    await runStartupTask("totpRepair", async () => {
+        if (!isLeaderWorker()) {
+            return;
+        }
+        const repairOnStartup = parseBooleanEnv(process.env.REPAIR_DUPLICATE_TOTP_ON_STARTUP, true);
+        if (!repairOnStartup) {
+            return;
+        }
+
+        const { repairDuplicateTotpSecrets } = require("./utils/totpProvisioning");
+        const result = await repairDuplicateTotpSecrets({ User, forceEnrollment: true });
+        if (result.repaired > 0) {
+            console.warn(`[Security] Repaired ${result.repaired}/${result.scanned} duplicate or legacy TOTP secret(s). Affected users must scan their personal QR code on next login.`);
+        }
+    }, { required: false });
 
     // Only master process (or first worker) usually handles cron jobs to avoid duplicates
     // But in this cluster, we check if we are worker 1 or use a locking mechanism.
