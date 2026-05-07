@@ -1097,7 +1097,10 @@ exports.login = async (req, res) => {
 
         const webAuthnEnabled = isWebAuthnConfigured();
         const hasBiometrics = Array.isArray(user.credentials) && user.credentials.length > 0;
-        const requiresBiometric = !user.isFirstLogin && user.isBiometricEnabled && webAuthnEnabled;
+        if (!user.isFirstLogin && user.isBiometricEnabled && webAuthnEnabled && !hasBiometrics) {
+            user.isBiometricEnabled = false;
+        }
+        const requiresBiometric = !user.isFirstLogin && user.isBiometricEnabled && webAuthnEnabled && hasBiometrics;
         const requires2FA = !user.isFirstLogin && user.isTwoFactorEnabled;
         const needsTotpProvisioning = user.isFirstLogin || requires2FA;
         let totpPlainSecret = normalizeTotpSecret(user.twoFactorSecret);
@@ -1288,7 +1291,10 @@ exports.verify2FA = async (req, res) => {
         const webAuthnEnabled = isWebAuthnConfigured();
         const biometricsOn = user.isBiometricEnabled && webAuthnEnabled;
         const hasCreds = Array.isArray(user.credentials) && user.credentials.length > 0;
-        const requiresBiometric = biometricsOn;
+        if (biometricsOn && !hasCreds) {
+            user.isBiometricEnabled = false;
+        }
+        const requiresBiometric = biometricsOn && hasCreds;
 
         if (isSetupFlow) {
             const nextPendingAuthToken = await issuePendingAuthToken(user, req, AUTH_FLOW_STAGES.SETUP_VERIFIED);
@@ -2144,8 +2150,10 @@ exports.removeBiometrics = async (req, res) => {
         if (!ensureSecurityAccess(req, res, user)) return;
 
         user.credentials = [];
+        user.isBiometricEnabled = false;
         clearRegistrationChallenge(user);
         clearAuthChallenge(user);
+        user.authFlowVersion = (user.authFlowVersion || 0) + 1;
         await user.save();
         await logSecurityEvent(req, userId, "Biometric Reset", "Success", "All biometric credentials removed");
 
@@ -2202,8 +2210,12 @@ exports.removeCredential = async (req, res) => {
             return sendWebAuthnError(res, 404, "CREDENTIAL_NOT_FOUND", "Credential not found");
         }
         user.credentials = (user.credentials || []).filter(c => !c.credentialID.equals(target));
+        if (user.credentials.length === 0) {
+            user.isBiometricEnabled = false;
+        }
         clearRegistrationChallenge(user);
         clearAuthChallenge(user);
+        user.authFlowVersion = (user.authFlowVersion || 0) + 1;
         await user.save();
         await logSecurityEvent(req, userId, "Credential Removal", "Success", `Passkey removed (${removedCredential.nickname || "Device"})`);
         res.json({ msg: "Credential removed", remaining: user.credentials.length });
@@ -2370,6 +2382,7 @@ exports.revokeAllSessions = async (req, res) => {
         if (!ensureSecurityAccess(req, res, user)) return;
         
         user.credentials = [];
+        user.isBiometricEnabled = false;
         clearFaceChallenge(user);
         clearFaceLock(user);
         user.sessionVersion = (user.sessionVersion || 0) + 1;
