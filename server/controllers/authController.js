@@ -1807,6 +1807,30 @@ exports.bypassBiometric = async (req, res) => {
 };
 
 const rpName = "VITAM AI Portal";
+const getBoundedNumber = (value, fallback, min, max) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.max(min, Math.min(max, parsed));
+};
+const getWebAuthnRegistrationTimeout = () =>
+    getBoundedNumber(process.env.WEBAUTHN_REGISTRATION_TIMEOUT_MS, 120000, 60000, 180000);
+const getWebAuthnAuthenticatorSelection = () => {
+    const residentKey = String(process.env.WEBAUTHN_RESIDENT_KEY || "preferred").trim();
+    const userVerification = String(process.env.WEBAUTHN_USER_VERIFICATION || "required").trim();
+    const attachment = String(process.env.WEBAUTHN_AUTHENTICATOR_ATTACHMENT || "").trim();
+    const selection = {
+        residentKey: ["discouraged", "preferred", "required"].includes(residentKey) ? residentKey : "preferred",
+        userVerification: ["discouraged", "preferred", "required"].includes(userVerification) ? userVerification : "required"
+    };
+
+    // Leave attachment unset by default so Windows Hello, iPhone/Android hybrid passkeys,
+    // and physical security keys can all appear in the browser prompt.
+    if (["platform", "cross-platform"].includes(attachment)) {
+        selection.authenticatorAttachment = attachment;
+    }
+
+    return selection;
+};
 
 const {
     generateRegistrationOptions,
@@ -1846,12 +1870,8 @@ exports.registerOptions = async (req, res) => {
                 transports: cred.transports || []
             })),
             attestationType: 'none',
-            authenticatorSelection: {
-                residentKey: 'preferred',
-                userVerification: 'required',
-                authenticatorAttachment: 'platform' // prefer passkeys
-            },
-            timeout: 60000
+            authenticatorSelection: getWebAuthnAuthenticatorSelection(),
+            timeout: getWebAuthnRegistrationTimeout()
         });
 
         const now = new Date();
@@ -1947,6 +1967,7 @@ exports.verifyRegistration = async (req, res) => {
             };
 
             user.credentials.push(cred);
+            user.isBiometricEnabled = true;
 
             await logSecurityEvent(req, user._id, "Biometric Registration", "Success", `Passkey added (${cred.nickname})`);
 

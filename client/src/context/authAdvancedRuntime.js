@@ -14,8 +14,9 @@ const resolveAuthFlowPayload = (authRef) => {
   };
 };
 
-const PASSKEY_OPTIONS_TIMEOUT_MS = 12000;
-const PASSKEY_VERIFY_TIMEOUT_MS = 15000;
+const PASSKEY_OPTIONS_TIMEOUT_MS = 20000;
+const PASSKEY_VERIFY_TIMEOUT_MS = 30000;
+const PASSKEY_PROMPT_TIMEOUT_MS = 125000;
 const FACE_AUTH_TIMEOUT_MS = 15000;
 
 const resolveWebAuthnOptionsJSON = (payload, mode) => {
@@ -153,7 +154,7 @@ export const registerBiometrics = async ({
 
     const attResp = await Promise.race([
       startRegistration({ optionsJSON: registrationOptions }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Passkey timed out. Retry or use OTP.')), 65000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Passkey timed out. Retry or use OTP.')), PASSKEY_PROMPT_TIMEOUT_MS))
     ]);
 
     const { data: verification } = await api.post('/auth/verify-registration', {
@@ -199,7 +200,7 @@ export const authenticateBiometrics = async ({
 
     const authResp = await Promise.race([
       startAuthentication({ optionsJSON: authOptions }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Passkey timed out. Use OTP instead.')), 65000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Passkey timed out. Use OTP instead.')), PASSKEY_PROMPT_TIMEOUT_MS))
     ]);
 
     const { data: verification } = await api.post('/auth/verify-auth', {

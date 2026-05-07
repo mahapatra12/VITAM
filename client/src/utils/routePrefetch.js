@@ -312,7 +312,7 @@ export const warmCriticalRoutes = (options = {}) => {
     : [];
 
   if (!warmPaths.length) {
-    return () => {};
+    return () => { };
   }
 
   const handle = scheduleIdleTask(() => {
